@@ -2,6 +2,14 @@
 
 Appended newest first. Each entry records the decision, the alternatives considered, and the rationale.
 
+## 2026-10-15: A separate local build-check tool
+
+**Decision.** The optional `sdk/check` entry implements the local E17 runner, retaining six ordered evidence rows, a fixed 60-second observation, 250 ms process socket samples, and platform callbacks for saves, model calls, and signing. The ordinary SDK entry remains independent of those process and socket-server tools. A missing signing integration remains pending.
+
+**Alternatives.** Duplicate the game in check mode, shorten a run while reporting a pass, publish a check-only save, or let a local smoke stand for signed artifact acceptance.
+
+**Rationale.** S8 and E17 require the actual executable and actual game state, followed by signing only when every prerequisite passes. The permanent files record already describes the mechanism and policy values. Typed structural signed-list inputs remain an integration boundary until ew-host supplies its canonical schema. Static and sampled TCP evidence retain their known limits in each report.
+
 ## 2026-10-15: One real engine core for Kestrel Yards
 
 **Decision.** The sample uses one engine-backed core for the web worker, native window worker, and headless SDK process. Check mode runs that same headless entry. The core owns complete saves, confirmed-byte deduplication, terminal handlers, and quit acknowledgment after persistence. The engine is a sample development dependency, and is imported through its packaged public exports.

@@ -8,19 +8,22 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./check": { "types": "./dist/check/runner.d.ts", "import": "./dist/check/runner.js" }
   },
   "files": [
     "dist",
-    "docs/protocol.md"
+    "docs/protocol.md",
+    "docs/checks.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.check.json && node scripts/build-check.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "prepare": "tsc -p tsconfig.build.json",
+    "prepare": "tsc -p tsconfig.build.json && tsc -p tsconfig.check.json && node scripts/build-check.mjs",
     "build:sample": "node scripts/build-sample.mjs",
     "check:sample": "pnpm build:sample && node scripts/check-sample.mjs",
+    "check:runner": "pnpm build && pnpm build:sample && node scripts/check-runner.mjs",
     "build:sample:server": "pnpm build:sample && bun build --compile sample/build/headless.mjs --outfile sample/build/server/kestrel-yards"
   },
   "dependencies": {
