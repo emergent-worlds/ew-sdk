@@ -4,11 +4,40 @@
   "description": "The installed-game binding for the Emergent Worlds host contract.",
   "license": "Apache-2.0",
   "type": "module",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
-  "files": ["dist", "docs/protocol.md"],
-  "scripts": { "build": "tsc -p tsconfig.build.json", "typecheck": "tsc --noEmit", "test": "vitest run", "prepare": "tsc -p tsconfig.build.json" },
-  "dependencies": { "@emergent-worlds/host": "github:emergent-worlds/ew-host#2249802" },
-  "devDependencies": { "@types/node": "^24.0.0", "@types/ws": "^8.18.0", "typescript": "^5.9.0", "vitest": "^3.2.0", "ws": "^8.18.0" },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "docs/protocol.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepare": "tsc -p tsconfig.build.json",
+    "build:sample": "node scripts/build-sample.mjs",
+    "check:sample": "pnpm build:sample && node scripts/check-sample.mjs",
+    "build:sample:server": "pnpm build:sample && bun build --compile sample/build/headless.mjs --outfile sample/build/server/kestrel-yards"
+  },
+  "dependencies": {
+    "@emergent-worlds/host": "github:emergent-worlds/ew-host#2249802"
+  },
+  "devDependencies": {
+    "@emergentworlds/emergence-engine": "github:emergent-worlds/emergence-engine#95a4048",
+    "@tauri-apps/api": "^2.12.4",
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.0",
+    "esbuild": "^0.25.12",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0",
+    "ws": "^8.18.0"
+  },
   "packageManager": "pnpm@10.18.0",
-  "engines": { "node": ">=24" }
+  "engines": {
+    "node": ">=24"
+  }
 }

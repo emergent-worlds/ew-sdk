@@ -1,0 +1,37 @@
+# Kestrel Yards
+
+Kestrel Yards is the sample Reality for E16 and J11, owned by @mercerpress. Its scoped content is recorded under `build-v2-wave-3` in the permanent files record. The opening week has three orders, two berths, six crew, and timber, hull, and rigging assignments. Seeded clear weather, rain, and gales change progress. Play can continue after the opening week. These rules and texts are designed in the build, sort (b).
+
+## Shared implementation
+
+`src/core.ts` composes the real Emergence Engine and the shape in `src/shape.ts`. It uses public packaged exports, without source aliases. The engine dependency is pinned in the repository's package file. The core owns reads, proposals, forecasts, changes, undo, pause, resume, away advances, saves, and quit. A save contains the complete tree and actual engine files; unchanged files omit bytes only after host confirmation. A failed save rejects quit and preserves bytes for retry. Fractional away time belongs to the engine's saved header.
+
+`src/worker.ts` runs that core in a browser worker. `src/page.ts` renders the same state in the opaque App frame or a native Tauri window. The native shell supplies the launch URL and one-use credential from its environment to the worker, without storing or logging them. Closing the native window awaits the shared leaving save. `src/headless.ts` runs that core through the SDK. `EW_SDK_CHECK=1` does not select a separate simulation or fabricate saves.
+
+## Local commands
+
+Use Node 24.22.0, pnpm 10.18.0, and Bun 1.4.3. From the repository root:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm test
+pnpm typecheck
+pnpm build
+pnpm build:sample
+pnpm check:sample
+node scripts/check-sample.mjs bun
+pnpm build:sample:server
+node scripts/check-sample.mjs compiled
+```
+
+The lifecycle check launches two real child processes against a disposable local WebSocket host. The first runs check mode, advances actual state, and confirms interval and leaving saves. The second resumes the saved tree through ordinary execution and verifies byte identity. Only a synthetic fixture credential is used. This check does not perform the six isolated signed-build checks of E17.
+
+For a browser fixture, run `node scripts/serve-sample.mjs` after building. Open the printed loopback URL. It hosts the actual page and worker through separate page and core grants; the fixture theme button sends a host display message. This fixture is separate from the publishable folder.
+
+For the native shell, build the sample, then run `cargo check --manifest-path sample/src-tauri/Cargo.toml` and `cargo build --manifest-path sample/src-tauri/Cargo.toml`. The source requires Tauri 2 and the platform prerequisites. `node scripts/check-sample.mjs native` launches that debug executable twice through the same lifecycle fixture. On macOS this exercises the actual WKWebView, its worker, and the Rust command supplying the launch environment. The fixture terminates the child after the final-save acknowledgment, as the launcher owns process exit. It does not interact with the native window's close control. The current icon is a first-party placeholder copied from the company's App. No new artwork or final sample identity is asserted.
+
+## Artifact and acceptance limits
+
+`sample/build/` contains the web entry, worker, manifest, headless module, and optional locally compiled Bun server executable. Generated outputs are ignored. The manifest intentionally has no install targets until native targets and their actual files are packaged and verified. The local server executable has been exercised on the current macOS machine; it is not a signed release artifact.
+
+Desktop and phone browser checks, local Node and Bun lifecycle checks, and the macOS native lifecycle fixture establish this implementation slice. Complete native journeys and window-close interaction, Windows and Linux targets, signed releases, launcher admission, isolated checks, publication, and J11's complete journey remain open. The sample makes no external model calls.

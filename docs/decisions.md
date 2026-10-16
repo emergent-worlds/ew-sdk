@@ -2,6 +2,14 @@
 
 Appended newest first. Each entry records the decision, the alternatives considered, and the rationale.
 
+## 2026-10-15: One real engine core for Kestrel Yards
+
+**Decision.** The sample uses one engine-backed core for the web worker, native window worker, and headless SDK process. Check mode runs that same headless entry. The core owns complete saves, confirmed-byte deduplication, terminal handlers, and quit acknowledgment after persistence. The engine is a sample development dependency, and is imported through its packaged public exports.
+
+**Alternatives.** A check-only state fixture, separate native simulation, or a runtime engine dependency for all SDK consumers.
+
+**Rationale.** E16 and J11 require actual game state shared across contexts. The permanent files record's scoped Kestrel subsection supplies the content and rules, marked designed in the build and sort (b). Local socket, worker, and compiled-process checks supply evidence for this slice. Native source compilation does not establish signed or cross-platform acceptance.
+
 ## 2026-10-15: Share the core connection in normal and check execution
 
 **Decision.** The first SDK binding composes ew-host's bounded loopback transport and explicit core loader. The game supplies its save and quit handlers in both ordinary play and check mode.

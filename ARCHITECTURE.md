@@ -14,11 +14,11 @@ The files page Section 4; MR3.3, MR3.4; J11. The authoritative repository record
 
 ## What it depends on
 
-`ew-host`.
+`ew-host` at runtime. The Kestrel Yards sample additionally consumes the real Emergence Engine as a development dependency; SDK consumers do not acquire an engine dependency.
 
 ## Layout
 
-`src/`, `check/`, `sample/`.
+`src/` holds the installed-game binding. `sample/src/core.ts` holds the shared Kestrel Yards state and handlers, with browser worker and headless entries beside it. `sample/src-tauri/` holds the native window source. `scripts/` builds the sample and checks real child processes; `check/frame-host.ts` is the disposable browser host fixture. The sample's [README](sample/README.md) describes these paths and verification limits.
 
 ## Technology
 
@@ -26,4 +26,4 @@ TypeScript (the first binding); others as games need them. The reasons are in [`
 
 ## Status
 
-Created on 2026-10-14 in wave 0. Wave 3 foundation, 2026-10-15: `src/index.ts` connects installed games to the launcher through ew-host commit `2249802`, with explicit core grants and one-use credentials read from the environment or an embedding shell. Check mode follows the same code path. Six real local WebSocket integration tests cover authentication ordering, save and quit, check-mode environment, refused credentials, endpoint mismatch, and lost connections. Node 24.22.0 tests, typecheck, and build pass. The wire and game lifecycle obligations are in `docs/protocol.md`. The sample game, launcher, build check, signed release artifacts, and native acceptance remain outstanding; no npm package is published.
+Created on 2026-10-14 in wave 0. Wave 3, 2026-10-15: `src/index.ts` connects installed games through ew-host commit `2249802`, with explicit core grants and one-use credentials read from the environment or an embedding shell. Check mode follows the same code path. Kestrel Yards now has a real engine core shared by its browser worker, headless SDK process, and native window. Its content was recorded in the permanent files record before implementation. Tests cover connection lifecycle, deterministic play, complete saves, resume, saved fractional away time, terminal changes, and failed-save retry. Real local child-process checks cover Node, Bun, a locally compiled Bun server binary, and the macOS Tauri executable's actual WKWebView and worker; browser evidence covers desktop and phone layouts with host theme changes. The macOS native source passes Cargo check and build. Complete native journeys, Windows and Linux builds, signing, launcher admission, the isolated build check, and J11 acceptance remain open. No npm package is published.

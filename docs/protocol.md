@@ -10,4 +10,4 @@ The game owns serialization of its state. Register `on('save.request', ...)` and
 
 `EW_SDK_CHECK=1` uses the same connection and game implementation. The check runner supplies a local stub host and exercises the game's ordinary save and quit handlers. The SDK does not fabricate a save or simulate a successful check. Model calls still use the host; the SDK does not hold provider credentials.
 
-This first implementation slice covers the connection. The sample game, native launcher, isolated check runner, signed builds, publication, and cross-platform journeys remain separate work in the Build V2 cycle. The package has not been published to npm.
+The Kestrel Yards sample uses these handlers with the real Emergence Engine, including complete saves and saved fractional away time. Its [README](../sample/README.md) explains the shared browser, native-window, and server entries and the local lifecycle checks. Native launcher admission, the isolated build check, signed builds, publication, and cross-platform journeys remain open in the Build V2 cycle. The package has not been published to npm.

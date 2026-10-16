@@ -12,3 +12,7 @@ coverage/
 *.tfstate.*
 target/
 .playwright-mcp/
+.playwright-cli/
+output/
+*.bun-build
+sample/src-tauri/gen/

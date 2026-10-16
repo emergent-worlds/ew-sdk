@@ -1,0 +1,14 @@
+import { build } from 'esbuild';
+import { fileURLToPath } from 'node:url';
+import { mkdir, copyFile } from 'node:fs/promises';
+const root = new URL('../', import.meta.url);
+const path = name => fileURLToPath(new URL(name, root));
+const output = path('sample/build/');
+await mkdir(`${output}web`, { recursive: true });
+const common = { bundle: true, format: 'esm', target: 'es2023', logLevel: 'warning', minify: false };
+await build({ ...common, entryPoints: { page: path('sample/src/page.ts'), worker: path('sample/src/worker.ts') }, outdir: `${output}web`, platform: 'browser' });
+await build({ ...common, entryPoints: [path('sample/src/headless.ts')], outfile: `${output}headless.mjs`, platform: 'node' });
+await copyFile(path('sample/web/index.html'), `${output}web/index.html`);
+await copyFile(path('sample/web/page.css'), `${output}web/page.css`);
+await copyFile(path('sample/manifest.json'), `${output}manifest.json`);
+console.log('Built the shared Kestrel Yards core, web page, and headless SDK entry.');
