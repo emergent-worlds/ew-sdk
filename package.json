@@ -9,7 +9,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./check": { "types": "./dist/check/runner.d.ts", "import": "./dist/check/runner.js" }
+    "./check": {
+      "types": "./dist/check/runner.d.ts",
+      "import": "./dist/check/runner.js"
+    }
   },
   "files": [
     "dist",
@@ -27,7 +30,7 @@
     "build:sample:server": "pnpm build:sample && bun build --compile sample/build/headless.mjs --outfile sample/build/server/kestrel-yards"
   },
   "dependencies": {
-    "@emergent-worlds/host": "github:emergent-worlds/ew-host#2249802"
+    "@emergent-worlds/host": "github:emergent-worlds/ew-host#e52e4a8"
   },
   "devDependencies": {
     "@emergentworlds/emergence-engine": "github:emergent-worlds/emergence-engine#95a4048",

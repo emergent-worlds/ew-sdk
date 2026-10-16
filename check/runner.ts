@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
-import { HostBridge, Manifest, BuildTarget, type HostHandlers, type Transport } from '@emergent-worlds/host';
+import { HostBridge, Manifest, BuildTarget, canonicalBuildList, parseBuildList, type BuildList, type BuildFile, type HostHandlers, type Transport } from '@emergent-worlds/host';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { checkedPath, folderPath, hostAllowed, scanTree, under, validateFiles, type CheckFile, type StaticEvidence } from './scan.js';
 import { resolveNetworkAsk, sampleSockets } from './sockets.js';
@@ -32,12 +32,17 @@ export interface CheckPlan {
   /** Current provider addresses from the platform's model catalogue, without credentials. */
   providerHosts: readonly string[];
 }
+export type CheckSignInput = Readonly<Omit<BuildList, 'files'>> & {
+  readonly files: readonly Readonly<BuildFile>[];
+  readonly payload: string;
+  readonly fileListSha256: string;
+};
 export interface CheckServices {
   /** Commits the game's complete save through the check account's ordinary platform route. */
   save: NonNullable<HostHandlers['save']>;
   modelCall?: HostHandlers['modelCall'];
-  /** Integration owns canonical encoding and the builds key. Never called before every prerequisite passes. */
-  sign?: (input: { folder: string; version: string; target: string; files: readonly CheckFile[] }) => Promise<{ signature: string; fileListSha256: string }>;
+  /** Integration signs these exact canonical bytes with the builds key, only after all prerequisites pass. */
+  sign?: (input: CheckSignInput) => Promise<{ signature: string; fileListSha256: string }>;
 }
 export interface BuildCheckEvidence { folder: string; version: string; target: string; rows: CheckRow[]; passed: boolean }
 interface LaunchEvidence {
@@ -68,9 +73,13 @@ export async function checkRows(plan: CheckPlan, scan: StaticEvidence | undefine
   else if (rows.some(item => item.result !== 'pass') || !services.sign) rows.push(row(6, 'pending', { scanPassed: true, signed: false, reason: services.sign ? 'prerequisites have not passed' : 'signing integration is pending' }));
   else {
     try {
-      const signed = await services.sign!({ folder: plan.folder, version: plan.version, target: plan.target, files: plan.files.filter(file => under(file.path, prefix!)) });
-      if (!signed.signature || !/^[a-f0-9]{64}$/.test(signed.fileListSha256)) throw new Error('invalid signing acknowledgment');
-      rows.push(row(6, 'pass', { scanPassed: true, signed: true, fileListSha256: signed.fileListSha256, signature: signed.signature }));
+      const payload = canonicalBuildList({ domain: 'ew.build-files.v1', folder: plan.folder, version: plan.version, target: BuildTarget.parse(plan.target), prefix: prefix!, entry: plan.entryPath, files: plan.files.filter(file => under(file.path, prefix!)).map(file => ({ path: file.path, sha256: file.sha256, size: file.size, executable: file.executable })) });
+      const list = parseBuildList(payload);
+      const fileListSha256 = createHash('sha256').update(payload, 'utf8').digest('hex');
+      const input = Object.freeze({ ...list, files: Object.freeze(list.files.map(file => Object.freeze(file))), payload, fileListSha256 });
+      const signed = await services.sign!(input);
+      if (!signed.signature.trim() || signed.fileListSha256 !== fileListSha256) throw new Error('invalid signing acknowledgment');
+      rows.push(row(6, 'pass', { scanPassed: true, signed: true, fileListSha256, signature: signed.signature, payload }));
     } catch { rows.push(row(6, 'fail', { scanPassed: true, signed: false, reason: 'the signing service did not confirm a signature' })); }
   }
   return rows;

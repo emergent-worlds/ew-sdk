@@ -2,13 +2,21 @@
 
 Appended newest first. Each entry records the decision, the alternatives considered, and the rationale.
 
+## 2026-10-16: Bind check signing to the installer's exact canonical bytes
+
+**Decision.** Use ew-host's shared canonical build-list helpers in line six. Supply immutable identity, prefix, exact executable, sorted files, payload and its hash to the signing callback; require the returned hash to match and retain the signed envelope in evidence.
+
+**Alternatives.** Let the callback choose the file-list encoding, omit the prefix/executable from the signature, or accept any well-formed returned hash.
+
+**Rationale.** The recorded E12/E16 bytes must grant the same executable authority in check and install. The callback remains a trusted service boundary with no signing key inside the SDK. Synthetic callback tests establish ordering and binding, while native verification and real signing acceptance remain separate.
+
 ## 2026-10-15: A separate local build-check tool
 
 **Decision.** The optional `sdk/check` entry implements the local E17 runner, retaining six ordered evidence rows, a fixed 60-second observation, 250 ms process socket samples, and platform callbacks for saves, model calls, and signing. The ordinary SDK entry remains independent of those process and socket-server tools. A missing signing integration remains pending.
 
 **Alternatives.** Duplicate the game in check mode, shorten a run while reporting a pass, publish a check-only save, or let a local smoke stand for signed artifact acceptance.
 
-**Rationale.** S8 and E17 require the actual executable and actual game state, followed by signing only when every prerequisite passes. The permanent files record already describes the mechanism and policy values. Typed structural signed-list inputs remain an integration boundary until ew-host supplies its canonical schema. Static and sampled TCP evidence retain their known limits in each report.
+**Rationale.** S8 and E17 require the actual executable and actual game state, followed by signing only when every prerequisite passes. The permanent files record already describes the mechanism and policy values. The shared canonical payload now closes the structural signed-list seam; real signing service/key integration remains required. Static and sampled TCP evidence retain their known limits in each report.
 
 ## 2026-10-15: One real engine core for Kestrel Yards
 

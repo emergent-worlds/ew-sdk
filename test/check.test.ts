@@ -33,12 +33,25 @@ describe('E17 evidence does not invent passes', () => {
     expect(rows.map(row => row.result)).toEqual(['pass', 'pass', 'pass', 'pass', 'pass', 'pending']);
   });
   it('signs only after all five prerequisites and both scans pass', async () => {
-    const sign = vi.fn<NonNullable<CheckServices['sign']>>(async () => ({ signature: 'synthetic-test-signature', fileListSha256: 'b'.repeat(64) }));
+    const sign = vi.fn<NonNullable<CheckServices['sign']>>(async input => ({ signature: 'synthetic-service-acknowledgment', fileListSha256: input.fileListSha256 }));
     const failed = await checkRows(plan, scan, { ...launch, runMs: 59999 }, { sign });
     expect(failed[1]!.result).toBe('fail'); expect(failed[5]!.result).toBe('pending'); expect(sign).not.toHaveBeenCalled();
     const passed = await checkRows(plan, scan, launch, { sign });
     expect(passed.every(row => row.result === 'pass')).toBe(true); expect(sign).toHaveBeenCalledOnce();
-    expect(sign.mock.calls[0]![0]).toMatchObject({ folder: 'kestrel', version: 'version-1', target: 'server' });
+    expect(sign.mock.calls[0]![0]).toMatchObject({ domain: 'ew.build-files.v1', folder: 'kestrel', version: 'version-1', target: 'server', prefix: 'build/server', entry: plan.entryPath });
+    const input = sign.mock.calls[0]![0]; expect(input.fileListSha256).toBe(createHash('sha256').update(input.payload).digest('hex'));
+    expect(JSON.parse(input.payload)).toMatchObject({ prefix: 'build/server', entry: plan.entryPath, files: plan.files });
+    expect(Object.isFrozen(input)).toBe(true); expect(Object.isFrozen(input.files[0])).toBe(true);
+    expect(passed[5]!.evidence).toMatchObject({ payload: input.payload, fileListSha256: input.fileListSha256 });
+  });
+  it('refuses a signing acknowledgment for different canonical bytes', async () => {
+    const sign = vi.fn<NonNullable<CheckServices['sign']>>(async () => ({ signature: 'synthetic-service-acknowledgment', fileListSha256: 'b'.repeat(64) }));
+    const rows = await checkRows(plan, scan, launch, { sign }); expect(sign).toHaveBeenCalledOnce(); expect(rows[5]!.result).toBe('fail');
+  });
+  it('refuses invalid portable entry metadata before invoking the signer', async () => {
+    const sign = vi.fn<NonNullable<CheckServices['sign']>>(async input => ({ signature: 'synthetic-service-acknowledgment', fileListSha256: input.fileListSha256 }));
+    const entryPath = 'build/server/CON.exe'; const bad = { ...plan, entryPath, files: [{ ...plan.files[0]!, path: entryPath }] };
+    const rows = await checkRows(bad, scan, launch, { sign }); expect(sign).not.toHaveBeenCalled(); expect(rows[5]!.result).toBe('fail');
   });
   it('refuses a success without the observed SDK socket, requested save, and final leaving save', async () => {
     const rows = await checkRows(plan, scan, { ...launch, sdkSamples: 0, requestedSave: false, quitSaved: false }, {});
