@@ -13,6 +13,7 @@ import { WebSocketServer } from 'ws';
 import { canonicalBuildList, Manifest } from '@emergent-worlds/host';
 import { HeadlessSession } from '../../ew-server/dist/session.js';
 import { nativeEntryTarget } from '../../ew-server/dist/native-entry.js';
+import { launchInstalledCore } from '../../ew-server/dist/installed-child.js';
 import { stageInstalledServer } from '../../ew-server/dist/installed-stage.js';
 const manifest = Manifest.parse(JSON.parse(await readFile(new URL('../sample/manifest.json', import.meta.url), 'utf8')));
 const mode = process.argv[2] ?? (globalThis.Bun ? 'bun' : 'node'), compiled = mode === 'compiled';
@@ -30,18 +31,41 @@ if (compiled) {
     const { publicKey, privateKey } = generateKeyPairSync('ed25519'), id = randomBytes(8), fileSignature = sign(null, createHash('blake2b512').update(payload).digest(), privateKey), comment = 'ephemeral Kestrel Yards staging fixture';
     const key = Buffer.concat([Buffer.from('Ed'), id, publicKey.export({ format: 'der', type: 'spki' }).subarray(-32)]).toString('base64');
     const signature = `untrusted comment: local fixture\n${Buffer.concat([Buffer.from('ED'), id, fileSignature]).toString('base64')}\ntrusted comment: ${comment}\n${sign(null, Buffer.concat([fileSignature, Buffer.from(comment)]), privateKey).toString('base64')}`;
-    stage = await stageInstalledServer({ signed: { payload, signature }, artifact: { folder: 'kestrel-artifact', version: 'fixture' }, current: { folder: 'kestrel-reality', version: 'saved-fixture' }, publicKey: key, directory: stageBase, maxPayloadBytes: 1024 * 1024, maxTotalBytes: size, source: { async file(path) { assert.equal(path, 'server/kestrel-yards'); return Readable.toWeb(createReadStream(source)); } } }, AbortSignal.timeout(30000));
+    stage = await stageInstalledServer({ signed: { payload, signature }, artifact: { folder: 'kestrel-artifact', version: 'fixture' }, current: { folder: 'kestrel-reality', version: 'saved-reality' }, publicKey: key, directory: stageBase, maxPayloadBytes: 1024 * 1024, maxTotalBytes: size, source: { async file(path) { assert.equal(path, 'server/kestrel-yards'); return Readable.toWeb(createReadStream(source)); } } }, AbortSignal.timeout(30000));
     runtime = stage.entry;
   } catch (error) { await rm(stageBase, { recursive: true, force: true }); throw error; }
 }
 const files = new Map(), saves = [], ends = [];
 const waitFor = async predicate => { for (let n = 0; n < 100; n++) { if (predicate()) return; await new Promise(resolve => setTimeout(resolve, 10)); } throw new Error('the actual server session did not reach its expected state'); };
 async function open() {
-  let now = 0, session, admitted = false, failedSave = false, exited = false;
-  const token = randomBytes(32).toString('base64url'), fence = { serverId: 'kestrel-yards', sessionId: `fixture-${ends.length}`, epoch: ends.length + 1 };
+  let now = 0, session, admitted = false, failedSave = false, failedEnd = false, exited = false;
+  const fence = { serverId: 'kestrel-yards', sessionId: `fixture-${ends.length}`, epoch: ends.length + 1 };
+  const grant = { type: 'grant', asks: manifest.asks, session: fence.sessionId, version: { id: 'saved-reality', seq: saves.length }, files: [...files].map(([path, data]) => ({ path, sha256: hash(data), size: data.length })), uses: [], journeys: false, display: { theme: 'light', textSize: 'default', contrast: 'default', motion: 'full', language: 'en' } };
+  const platform = {
+    renew: async value => { assert.deepEqual(value, fence); return { ...fence, validUntilMs: now + 90000 }; },
+    read: async path => { assert(files.has(path)); return files.get(path).toString('base64'); },
+    model: async () => { throw new Error('the fixture has no model authority'); },
+    save: async (value, save) => {
+      assert.deepEqual(value, fence);
+      if (save.reason === 'leaving' && failedSave) throw new Error('fixture final save unavailable');
+      const next = new Map();
+      for (const file of save.files) { const bytes = file.data === undefined ? files.get(file.path) : Buffer.from(file.data, 'base64'); assert(bytes); assert.equal(hash(bytes), file.sha256); next.set(file.path, bytes); }
+      files.clear(); for (const entry of next) files.set(...entry); saves.push(save.reason);
+      return { version: `saved-${saves.length}`, seq: saves.length, at: '2026-10-16T00:00:00Z' };
+    },
+    end: async (value, reason) => { assert.deepEqual(value, fence); assert.equal(saves.at(-1), reason); if (failedEnd) throw new Error('fixture end unavailable'); ends.push(reason); },
+  };
+  if (compiled) {
+    const launched = await launchInstalledCore({ stage, grant, lease: { ...fence, validUntilMs: 90000 }, platform, clock: { now: () => now }, pace: 'day', signal: new AbortController().signal });
+    session = launched.session; void launched.reaped.then(() => { exited = true; });
+    try { await waitFor(() => session.snapshot().state === 'running'); }
+    catch (error) { session.close(); await launched.reaped; throw error; }
+    return { session, setTime(value) { now = value; }, failSave(value) { failedSave = value; }, failEnd(value) { failedEnd = value; }, exited: () => exited, async close() { session.close(); await launched.reaped; } };
+  }
+  const token = randomBytes(32).toString('base64url');
   const server = new WebSocketServer({ host: '127.0.0.1', port: 0, maxPayload: 4 * 1024 * 1024, perMessageDeflate: false });
   await once(server, 'listening');
-  const admission = setTimeout(() => { for (const socket of server.clients) socket.terminate(); }, 30_000);
+  const admission = setTimeout(() => { for (const socket of server.clients) socket.terminate(); }, 30000);
   server.on('connection', socket => {
     if (admitted) return socket.close();
     socket.once('message', (raw, binary) => {
@@ -54,28 +78,15 @@ async function open() {
         onClose(listener) { const close = () => listener(new Error('fixture SDK socket closed')); socket.on('close', close); return () => socket.off('close', close); },
         close() { socket.close(); },
       };
-      session = new HeadlessSession(transport, { type: 'grant', asks: manifest.asks, session: fence.sessionId, version: { id: 'saved-reality', seq: saves.length }, files: [...files].map(([path, data]) => ({ path, sha256: hash(data), size: data.length })), uses: [], journeys: false, display: { theme: 'light', textSize: 'default', contrast: 'default', motion: 'full', language: 'en' } }, { ...fence, validUntilMs: 90000 }, {
-        renew: async value => { assert.deepEqual(value, fence); return { ...fence, validUntilMs: now + 90000 }; },
-        read: async path => { assert(files.has(path)); return files.get(path).toString('base64'); },
-        model: async () => { throw new Error('the fixture has no model authority'); },
-        save: async (value, save) => {
-          assert.deepEqual(value, fence);
-          if (save.reason === 'leaving' && failedSave) throw new Error('fixture final save unavailable');
-          const next = new Map();
-          for (const file of save.files) { const bytes = file.data === undefined ? files.get(file.path) : Buffer.from(file.data, 'base64'); assert(bytes); assert.equal(hash(bytes), file.sha256); next.set(file.path, bytes); }
-          files.clear(); for (const entry of next) files.set(...entry); saves.push(save.reason);
-          return { version: `saved-${saves.length}`, seq: saves.length, at: '2026-10-16T00:00:00Z' };
-        },
-        end: async (value, reason) => { assert.deepEqual(value, fence); assert.equal(saves.at(-1), reason); ends.push(reason); },
-      }, { now: () => now }, 'day');
+      session = new HeadlessSession(transport, grant, { ...fence, validUntilMs: 90000 }, platform, { now: () => now }, 'day');
     });
   });
   const address = server.address();
-  const child = spawn(runtime, compiled ? [] : [fileURLToPath(new URL('../sample/build/headless.mjs', import.meta.url))], { env: { ...process.env, EW_SDK_URL: `ws://127.0.0.1:${address.port}/`, EW_SDK_TOKEN: token }, stdio: 'ignore' });
+  const child = spawn(runtime, [fileURLToPath(new URL('../sample/build/headless.mjs', import.meta.url))], { env: { ...process.env, EW_SDK_URL: `ws://127.0.0.1:${address.port}/`, EW_SDK_TOKEN: token }, stdio: 'ignore' });
   const ended = once(child, 'exit').then(([code, signal]) => { exited = true; return { code, signal }; }, () => { exited = true; return { code: null, signal: 'spawn_error' }; });
   try { await waitFor(() => { if (exited) throw new Error('the fixture child exited before loading'); return session?.snapshot().state === 'running'; }); }
   catch (error) { session?.close(); child.kill(); await ended; clearTimeout(admission); for (const socket of server.clients) socket.terminate(); await new Promise(resolve => server.close(resolve)); throw error; }
-  return { session, setTime(value) { now = value; }, failSave(value) { failedSave = value; }, exited: () => exited, async close() {
+  return { session, setTime(value) { now = value; }, failSave(value) { failedSave = value; }, failEnd(value) { failedEnd = value; }, exited: () => exited, async close() {
     session.close(); clearTimeout(admission);
     const timeout = setTimeout(() => child.kill(), 1000);
     try { const result = await ended; assert.deepEqual(result, { code: 0, signal: null }); }
@@ -87,14 +98,17 @@ const first = await open();
 try {
   first.setTime(30000); await first.session.pulse(); assert.equal(saves.at(-1), 'interval');
   const header = JSON.parse(files.get('state/engine.json')); assert(BigInt(header.carry) > 0n, 'actual away advance must reach the engine');
-  first.failSave(true); await assert.rejects(first.session.stop(), /fixture final save unavailable/); assert.equal(first.session.snapshot().state, 'paused'); assert.equal(first.exited(), false); assert.equal(ends.length, 0);
+  first.failSave(true); await assert.rejects(first.session.stop(), /fixture final save unavailable/); assert.equal(first.session.snapshot().state, 'paused'); assert.equal(first.exited(), false); assert.equal(ends.length, 0); if (compiled) await assert.rejects(stage.dispose(), /not been reaped/);
   first.failSave(false); first.setTime(40000); await first.session.pulse(); assert.equal(first.session.snapshot().state, 'stopped');
 } finally { await first.close(); }
 const saved = [...files].map(([path, bytes]) => [path, bytes.toString('base64')]);
 const second = await open();
-try { await second.session.stop(); assert.deepEqual([...files].map(([path, bytes]) => [path, bytes.toString('base64')]), saved); }
+try {
+  if (compiled) { second.failEnd(true); await assert.rejects(second.session.stop('handoff'), /fixture end unavailable/); assert.equal(second.exited(), false); assert.equal(second.session.snapshot().state, 'paused'); await assert.rejects(stage.dispose(), /not been reaped/); second.failEnd(false); }
+  await second.session.stop('handoff'); assert.deepEqual([...files].map(([path, bytes]) => [path, bytes.toString('base64')]), saved);
+}
 finally { await second.close(); }
-assert.deepEqual(saves, ['interval', 'leaving', 'leaving']); assert.deepEqual(ends, ['leaving', 'leaving']);
+assert.deepEqual(saves, compiled ? ['interval', 'leaving', 'leaving', 'handoff', 'handoff', 'handoff', 'handoff'] : ['interval', 'leaving', 'handoff']); assert.deepEqual(ends, ['leaving', 'handoff']);
 }
 try { await check(); } finally { await stage?.dispose(); if (stageBase) await rm(stageBase, { recursive: true, force: true }); }
 console.log(`${mode}${compiled ? ' verified-stage' : ''} SDK child reaches actual HeadlessSession running, advances, saves, retains failed final save, ends and resumes exact bytes`);

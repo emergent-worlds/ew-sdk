@@ -85,7 +85,7 @@ export async function createYard(host: CoreHost): Promise<YardCore> {
   host.handle('change.undo', () => { const result = engine.undo(); publish(); return result; });
   host.handle('pause', () => { paused = true; publish(); return { paused, at: engine.at }; });
   host.handle('resume', () => { paused = false; publish(); return { paused, at: engine.at }; });
-  host.handle('quit', async () => { await save('leaving'); return { saved: true, at: engine.at }; });
+  host.handle('quit', async message => { await save(message.reason === 'handoff' ? 'handoff' : 'leaving'); return { saved: true, at: engine.at }; });
   const off = [
     host.on('advance', message => {
       if (paused || closed) return;

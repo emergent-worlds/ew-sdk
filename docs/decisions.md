@@ -2,6 +2,14 @@
 
 Appended newest first. Each entry records the decision, the alternatives considered, and the rationale.
 
+## 2026-10-16: Exercise the actual reserved native child adapter
+
+**Decision.** Use the sibling server's production child helper in the compiled development probe and save the requested handoff reason in the shared quit handler. Check retained failed save/end, correlated quit, exclusive stage lifetime, child reaping and exact saved-state resume.
+
+**Alternatives.** Keep the compiled probe on its fixture socket host or acknowledge every handoff with a leaving save.
+
+**Rationale.** E16 source582f18a35b requires the installed build to share the server's fenced lifecycle. This local proof uses real executable bytes and core state, while production acquisition, signing configuration and other native targets retain their independent gates.
+
 ## 2026-10-16: Check actual native bytes in the compiled server probe
 
 **Decision.** Call the sibling server's native-entry guard before launching the actual compiled sample in the development server-session probe. Keep Node and Bun interpreted checks separate.

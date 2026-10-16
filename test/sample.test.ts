@@ -111,3 +111,9 @@ it('announces completed core loading after its state and handlers are ready', as
   try { await flush(); expect(progress).toEqual([1]); expect(await sample.bridge.request({ type: 'state.read', path: 'values/crew' })).toBe(6); }
   finally { sample.close(); }
 });
+
+it('acknowledges handoff quit only after the actual handoff save', async () => {
+  const sample = await setup();
+  try { await expect(sample.bridge.request({ type: 'quit', reason: 'handoff' })).resolves.toMatchObject({ saved: true }); expect(sample.saves.map(save => save.reason)).toEqual(['handoff']); }
+  finally { sample.close(); }
+});
