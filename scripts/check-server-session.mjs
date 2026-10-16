@@ -2,18 +2,38 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { createHash, randomBytes } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { createHash, generateKeyPairSync, randomBytes, sign } from 'node:crypto';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { Readable } from 'node:stream';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
-import { Manifest } from '@emergent-worlds/host';
+import { canonicalBuildList, Manifest } from '@emergent-worlds/host';
 import { HeadlessSession } from '../../ew-server/dist/session.js';
 import { nativeEntryTarget } from '../../ew-server/dist/native-entry.js';
+import { stageInstalledServer } from '../../ew-server/dist/installed-stage.js';
 const manifest = Manifest.parse(JSON.parse(await readFile(new URL('../sample/manifest.json', import.meta.url), 'utf8')));
 const mode = process.argv[2] ?? (globalThis.Bun ? 'bun' : 'node'), compiled = mode === 'compiled';
-const runtime = compiled ? fileURLToPath(new URL('../sample/build/server/kestrel-yards', import.meta.url)) : mode === 'bun' ? 'bun' : process.execPath;
+let runtime = compiled ? fileURLToPath(new URL('../sample/build/server/kestrel-yards', import.meta.url)) : mode === 'bun' ? 'bun' : process.execPath;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 if (compiled) assert.equal(await nativeEntryTarget(runtime, AbortSignal.timeout(1000)), process.platform === 'darwin' ? `macos-${process.arch}` : process.platform === 'win32' ? 'windows-x64' : 'linux-x64');
+let stage, stageBase;
+if (compiled) {
+  stageBase = await mkdtemp(join(tmpdir(), 'ew-sdk-staged-'));
+  try {
+    const sha = createHash('sha256'); for await (const bytes of createReadStream(runtime)) sha.update(bytes);
+    const size = (await stat(runtime)).size, source = runtime;
+    const payload = canonicalBuildList({ domain: 'ew.build-files.v1', folder: 'kestrel-artifact', version: 'fixture', target: 'server', prefix: 'server', entry: 'server/kestrel-yards', files: [{ path: 'server/kestrel-yards', size, sha256: sha.digest('hex'), executable: true }] });
+    // Ephemeral trust for this local fixture only. No key material is persisted or printed.
+    const { publicKey, privateKey } = generateKeyPairSync('ed25519'), id = randomBytes(8), fileSignature = sign(null, createHash('blake2b512').update(payload).digest(), privateKey), comment = 'ephemeral Kestrel Yards staging fixture';
+    const key = Buffer.concat([Buffer.from('Ed'), id, publicKey.export({ format: 'der', type: 'spki' }).subarray(-32)]).toString('base64');
+    const signature = `untrusted comment: local fixture\n${Buffer.concat([Buffer.from('ED'), id, fileSignature]).toString('base64')}\ntrusted comment: ${comment}\n${sign(null, Buffer.concat([fileSignature, Buffer.from(comment)]), privateKey).toString('base64')}`;
+    stage = await stageInstalledServer({ signed: { payload, signature }, artifact: { folder: 'kestrel-artifact', version: 'fixture' }, current: { folder: 'kestrel-reality', version: 'saved-fixture' }, publicKey: key, directory: stageBase, maxPayloadBytes: 1024 * 1024, maxTotalBytes: size, source: { async file(path) { assert.equal(path, 'server/kestrel-yards'); return Readable.toWeb(createReadStream(source)); } } }, AbortSignal.timeout(30000));
+    runtime = stage.entry;
+  } catch (error) { await rm(stageBase, { recursive: true, force: true }); throw error; }
+}
 const files = new Map(), saves = [], ends = [];
 const waitFor = async predicate => { for (let n = 0; n < 100; n++) { if (predicate()) return; await new Promise(resolve => setTimeout(resolve, 10)); } throw new Error('the actual server session did not reach its expected state'); };
 async function open() {
@@ -62,6 +82,7 @@ async function open() {
     finally { clearTimeout(timeout); for (const socket of server.clients) socket.terminate(); await new Promise(resolve => server.close(resolve)); }
   } };
 }
+async function check() {
 const first = await open();
 try {
   first.setTime(30000); await first.session.pulse(); assert.equal(saves.at(-1), 'interval');
@@ -74,4 +95,6 @@ const second = await open();
 try { await second.session.stop(); assert.deepEqual([...files].map(([path, bytes]) => [path, bytes.toString('base64')]), saved); }
 finally { await second.close(); }
 assert.deepEqual(saves, ['interval', 'leaving', 'leaving']); assert.deepEqual(ends, ['leaving', 'leaving']);
-console.log(`${mode} SDK child reaches actual HeadlessSession running, advances, saves, retains failed final save, ends and resumes exact bytes`);
+}
+try { await check(); } finally { await stage?.dispose(); if (stageBase) await rm(stageBase, { recursive: true, force: true }); }
+console.log(`${mode}${compiled ? ' verified-stage' : ''} SDK child reaches actual HeadlessSession running, advances, saves, retains failed final save, ends and resumes exact bytes`);
