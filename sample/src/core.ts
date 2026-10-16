@@ -104,5 +104,6 @@ export async function createYard(host: CoreHost): Promise<YardCore> {
     engine.on('event', event => host.event(event.level, event.text)),
   ];
   host.status(engine.status());
+  host.progress(1);
   return { engine, view, assign, advance, save, subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; }, close() { if (closed) return; closed = true; for (const remove of off) remove(); listeners.clear(); host.close(); } };
 }

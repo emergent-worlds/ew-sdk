@@ -2,6 +2,14 @@
 
 Appended newest first. Each entry records the decision, the alternatives considered, and the rationale.
 
+## 2026-10-16: Prove sample readiness through the actual server session
+
+**Decision.** Emit completed core progress after state restoration and handler registration. Require that signal in the ordinary sample smoke and add a development probe using the actual sibling server HeadlessSession with real SDK child processes.
+
+**Alternatives.** Treat status as loading completion, keep the old smoke passing while the server stays starting, or claim artifact/runtime acceptance from a controlled socket host.
+
+**Rationale.** The E16 server build must use the same lifecycle as other cores. A new regression and actual child probe both failed before the progress fix. Node, Bun and compiled process checks now exercise the server's running gate and saved shutdown. Production artifact trust and native target selection remain independent requirements.
+
 ## 2026-10-16: Confine executable scans to manifest-declared target directories
 
 **Decision.** Derive the complete executable containment set from the checked immutable manifest. Require portable, non-overlapping prefixes, scan literal hosts only in the active target, refuse archives anywhere, and sign only the active prefix.

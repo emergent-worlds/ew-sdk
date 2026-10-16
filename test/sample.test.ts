@@ -105,3 +105,9 @@ describe('Kestrel Yards uses the real engine', () => {
     } finally { a.close(); }
   });
 });
+
+it('announces completed core loading after its state and handlers are ready', async () => {
+  const progress: number[] = [], sample = await setup(undefined, { progress: fraction => { progress.push(fraction); } });
+  try { await flush(); expect(progress).toEqual([1]); expect(await sample.bridge.request({ type: 'state.read', path: 'values/crew' })).toBe(6); }
+  finally { sample.close(); }
+});

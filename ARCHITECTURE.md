@@ -34,3 +34,9 @@ Created on 2026-10-14 in wave 0. Wave 3, 2026-10-15: `src/index.ts` connects ins
 The optional check runner uses ew-host's canonical installed build encoding. Its signing callback receives the signed prefix and exact executable, canonical payload, SHA-256 and the exact first five prerequisite rows; the runner refuses a returned hash for different bytes and preserves the payload with the signature in evidence. This closes the structural encoding gap; real signing service/key configuration and artifact acceptance remain open.
 
 The E17 static scan derives all executable containment prefixes from the immutable manifest, validates portable non-overlapping target directories, and permits executable sibling targets. Active-target hosts and network observations remain separate, archives are refused across the complete tree, and signing includes only the selected target.
+
+## Actual server-session readiness
+
+The shared Kestrel core emits progress(1) only after saved-state loading and all core handlers are ready. Earlier local smokes waited only for status, which did not expose the missing progress signal. The real HeadlessSession remained starting and could not advance or perform its interval save. The smoke now waits for completed progress, and check:server-session uses the actual sibling server session against real Node, Bun and compiled sample children. It proves running state, real engine carry, interval save, retained failed final save, saved end, natural child exit and exact-state resume.
+
+This development probe has controlled loopback/platform ports and adds no server dependency to the public SDK package. It does not provide production signed server-artifact acquisition, native target binding or a child launcher in ew-server or the App runner. Those E16 integrations, release packaging and complete native acceptance remain open. The sample manifest still declares no install targets until actual target files are packaged and verified.

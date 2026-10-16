@@ -4,7 +4,7 @@ Kestrel Yards is the sample Reality for E16 and J11, owned by @mercerpress. Its 
 
 ## Shared implementation
 
-`src/core.ts` composes the real Emergence Engine and the shape in `src/shape.ts`. It uses public packaged exports, without source aliases. The engine dependency is pinned in the repository's package file. The core owns reads, proposals, forecasts, changes, undo, pause, resume, away advances, saves, and quit. A save contains the complete tree and actual engine files; unchanged files omit bytes only after host confirmation. A failed save rejects quit and preserves bytes for retry. Fractional away time belongs to the engine's saved header.
+`src/core.ts` composes the real Emergence Engine and the shape in `src/shape.ts`. It uses public packaged exports, without source aliases. The engine dependency is pinned in the repository's package file. The core owns reads, proposals, forecasts, changes, undo, pause, resume, away advances, saves, and quit. A save contains the complete tree and actual engine files; unchanged files omit bytes only after host confirmation. A failed save rejects quit and preserves bytes for retry. Fractional away time belongs to the engine's saved header. After restoring state and registering all core handlers, it sends progress(1), which releases the actual server loading gate. A status message alone does not do so.
 
 `src/worker.ts` runs that core in a browser worker. `src/page.ts` renders the same state in the opaque App frame or a native Tauri window. The native shell supplies the launch URL and one-use credential from its environment to the worker, without storing or logging them. Closing the native window awaits the shared leaving save. `src/headless.ts` runs that core through the SDK. `EW_SDK_CHECK=1` does not select a separate simulation or fabricate saves.
 
@@ -24,7 +24,9 @@ pnpm build:sample:server
 node scripts/check-sample.mjs compiled
 ```
 
-The lifecycle check launches two real child processes against a disposable local WebSocket host. The first runs check mode, advances actual state, and confirms interval and leaving saves. The second resumes the saved tree through ordinary execution and verifies byte identity. Only a synthetic fixture credential is used. This check does not perform the six isolated signed-build checks of E17.
+The lifecycle check waits for completed core progress and launches two real child processes against a disposable local WebSocket host. The first runs check mode, advances actual state, and confirms interval and leaving saves. The second resumes the saved tree through ordinary execution and verifies byte identity. Only a synthetic fixture credential is used. This check does not perform the six isolated signed-build checks of E17.
+
+For the actual server-session probe, first build the sibling server with `pnpm --dir ../ew-server build`, then run `pnpm check:server-session`, `bun scripts/check-server-session.mjs` and, after compiling the sample, `node scripts/check-server-session.mjs compiled`. This development fixture imports the sibling server's actual HeadlessSession; the published SDK gains no server dependency. Each runtime launches two real SDK children with an ephemeral loopback token. It requires running state, verifies actual saved engine carry after away advance, retains a failed final save and child, confirms save before end, observes natural process exit, and reopens exact saved bytes. The socket host and platform persistence are fixture ports. It does not select or verify a production installed artifact.
 
 For a browser fixture, run `node scripts/serve-sample.mjs` after building. Open the printed loopback URL. It hosts the actual page and worker through separate page and core grants; the fixture theme button sends a host display message. This fixture is separate from the publishable folder.
 

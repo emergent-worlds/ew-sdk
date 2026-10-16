@@ -34,7 +34,7 @@ async function launch(check) {
       };
       bridge = new HostBridge(transport, manifest.asks, {
         ready: () => bridge.send({ type: 'grant', asks: manifest.asks, session: 'sample-smoke', headless: true, version: { id: 'smoke-version', seq: reasons.length }, files: [...state].map(([path, data]) => ({ path, size: data.length, sha256: createHash('sha256').update(data).digest('hex') })), display: { theme: 'light', textSize: 'default', contrast: 'default', motion: 'full', language: 'en' } }),
-        status: () => resolveOpened(),
+        progress: fraction => { if (fraction === 1) resolveOpened(); },
         fileRead: async path => ({ data: state.get(path).toString('base64') }),
         save: async message => {
           const next = new Map();

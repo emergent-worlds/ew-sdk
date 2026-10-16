@@ -27,7 +27,8 @@
     "build:sample": "node scripts/build-sample.mjs",
     "check:sample": "pnpm build:sample && node scripts/check-sample.mjs",
     "check:runner": "pnpm build && pnpm build:sample && node scripts/check-runner.mjs",
-    "build:sample:server": "pnpm build:sample && bun build --compile sample/build/headless.mjs --outfile sample/build/server/kestrel-yards"
+    "build:sample:server": "pnpm build:sample && bun build --compile sample/build/headless.mjs --outfile sample/build/server/kestrel-yards",
+    "check:server-session": "pnpm build:sample && node scripts/check-server-session.mjs"
   },
   "dependencies": {
     "@emergent-worlds/host": "github:emergent-worlds/ew-host#e52e4a8"
