@@ -2,6 +2,14 @@
 
 Appended newest first. Each entry records the decision, the alternatives considered, and the rationale.
 
+## 2026-10-16: Check actual native bytes in the compiled server probe
+
+**Decision.** Call the sibling server's native-entry guard before launching the actual compiled sample in the development server-session probe. Keep Node and Bun interpreted checks separate.
+
+**Alternatives.** Infer a compatible executable from its filename or generic server build identity.
+
+**Rationale.** E16's canonical native-binding clarification requires actual byte evidence. The current macOS-arm64 executable passes this guard and the actual HeadlessSession lifecycle. The development check supplies neither production signature trust nor cross-target acceptance.
+
 ## 2026-10-16: Prove sample readiness through the actual server session
 
 **Decision.** Emit completed core progress after state restoration and handler registration. Require that signal in the ordinary sample smoke and add a development probe using the actual sibling server HeadlessSession with real SDK child processes.

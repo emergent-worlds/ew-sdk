@@ -8,10 +8,12 @@ import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { Manifest } from '@emergent-worlds/host';
 import { HeadlessSession } from '../../ew-server/dist/session.js';
+import { nativeEntryTarget } from '../../ew-server/dist/native-entry.js';
 const manifest = Manifest.parse(JSON.parse(await readFile(new URL('../sample/manifest.json', import.meta.url), 'utf8')));
 const mode = process.argv[2] ?? (globalThis.Bun ? 'bun' : 'node'), compiled = mode === 'compiled';
 const runtime = compiled ? fileURLToPath(new URL('../sample/build/server/kestrel-yards', import.meta.url)) : mode === 'bun' ? 'bun' : process.execPath;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+if (compiled) assert.equal(await nativeEntryTarget(runtime, AbortSignal.timeout(1000)), process.platform === 'darwin' ? `macos-${process.arch}` : process.platform === 'win32' ? 'windows-x64' : 'linux-x64');
 const files = new Map(), saves = [], ends = [];
 const waitFor = async predicate => { for (let n = 0; n < 100; n++) { if (predicate()) return; await new Promise(resolve => setTimeout(resolve, 10)); } throw new Error('the actual server session did not reach its expected state'); };
 async function open() {
