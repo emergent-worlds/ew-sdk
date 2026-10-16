@@ -26,4 +26,4 @@ TypeScript (the first binding); others as games need them. The reasons are in [`
 
 ## Status
 
-Created on 2026-10-14 in wave 0 of build V2; nothing is built yet.
+Created on 2026-10-14 in wave 0. Wave 3 foundation, 2026-10-15: `src/index.ts` connects installed games to the launcher through ew-host commit `2249802`, with explicit core grants and one-use credentials read from the environment or an embedding shell. Check mode follows the same code path. Six real local WebSocket integration tests cover authentication ordering, save and quit, check-mode environment, refused credentials, endpoint mismatch, and lost connections. Node 24.22.0 tests, typecheck, and build pass. The wire and game lifecycle obligations are in `docs/protocol.md`. The sample game, launcher, build check, signed release artifacts, and native acceptance remain outstanding; no npm package is published.
