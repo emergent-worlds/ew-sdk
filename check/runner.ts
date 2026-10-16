@@ -214,7 +214,7 @@ export async function runBuildCheck(plan: CheckPlan, services: CheckServices, si
     validateFiles(plan.files); folderPath(plan.entryPath);
     const prefix = manifest.entry?.installs?.[target];
     if (!prefix || !under(plan.entryPath, folderPath(prefix)) || !plan.files.some(file => file.path === plan.entryPath && file.executable)) throw new Error('the target has no executable entry');
-    scan = await scanTree(plan.root, plan.files, prefix, plan.providerHosts);
+    scan = await scanTree(plan.root, plan.files, target, manifest, plan.providerHosts);
     const manifestFile = plan.files.find(file => file.path === 'manifest.json');
     const manifestBytes = await readFile(await checkedPath(plan.root, 'manifest.json'));
     if (!manifestFile || createHash('sha256').update(manifestBytes).digest('hex') !== manifestFile.sha256) throw new Error('the checked manifest is not in the immutable tree');

@@ -1,3 +1,4 @@
+import { BuildTarget, Manifest, portablePath } from '@emergent-worlds/host';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { lstat, realpath } from 'node:fs/promises';
@@ -60,9 +61,24 @@ function archiveMagic(bytes: Buffer): boolean {
 const executableMagic = (bytes: Buffer) => bytes.subarray(0, 2).toString('ascii') === 'MZ' || bytes.subarray(0, 2).toString('ascii') === '#!' || ['7f454c46', 'feedface', 'feedfacf', 'cefaedfe', 'cffaedfe', 'cafebabe', 'bebafeca', 'cafebabf', 'bfbafeca'].includes(bytes.subarray(0, 4).toString('hex'));
 const hostPattern = /(?:\b(?:https?|wss?):\/\/)(\[[a-f\d:]+\]|[a-z\d.-]+)(:\d{1,5})?|\b((?:\d{1,3}\.){3}\d{1,3})(:\d{1,5})?|\b((?:[a-z\d](?:[a-z\d-]*[a-z\d])?\.)+(?:com|net|org|io|dev|app|ai|co|cloud|local))(:\d{1,5})?/gi;
 
+/** Prefix authority comes only from the parsed immutable manifest, never a caller exemption. */
+export function declaredBuildPrefixes(input: unknown): string[] {
+  const manifest = Manifest.parse(input);
+  const prefixes = Object.values(manifest.entry?.installs ?? {});
+  if (!prefixes.length) throw new Error('the manifest declares no build prefixes');
+  for (const prefix of prefixes) if (!portablePath(prefix)) throw new Error('the manifest declares an invalid build prefix');
+  const folded = prefixes.map(prefix => prefix.toLowerCase());
+  for (let i = 0; i < folded.length; i++) for (let j = i + 1; j < folded.length; j++) {
+    if (under(folded[i]!, folded[j]!) || under(folded[j]!, folded[i]!)) throw new Error('the manifest declares overlapping build prefixes');
+  }
+  return prefixes;
+}
+
 /** Conservative static evidence. Embedded metadata is not silently exempted. */
-export async function scanTree(root: string, files: readonly CheckFile[], prefix: string, providers: readonly string[]): Promise<StaticEvidence> {
-  validateFiles(files); folderPath(prefix);
+export async function scanTree(root: string, files: readonly CheckFile[], target: BuildTarget, input: unknown, providers: readonly string[]): Promise<StaticEvidence> {
+  validateFiles(files); const manifest = Manifest.parse(input); const prefixes = declaredBuildPrefixes(manifest);
+  const prefix = manifest.entry?.installs?.[BuildTarget.parse(target)];
+  if (!prefix) throw new Error('the active build target is not declared');
   providers.forEach(namedHost);
   const hosts = new Set<string>();
   const archives: string[] = []; const outsideExecutables: string[] = [];
@@ -86,7 +102,7 @@ export async function scanTree(root: string, files: readonly CheckFile[], prefix
     }
     if (count !== file.size || hash.digest('hex') !== file.sha256) throw new Error('a file differs from the checked tree');
     if (archiveName.test(file.path) || archiveMagic(first)) archives.push(file.path);
-    if ((file.executable || executableMagic(first)) && !under(file.path, prefix)) outsideExecutables.push(file.path);
+    if ((file.executable || executableMagic(first)) && !prefixes.some(declared => under(file.path, declared))) outsideExecutables.push(file.path);
   }
   const sorted = [...hosts].sort();
   return { verifiedFiles: files.length, hosts: sorted, providerHosts: sorted.filter(host => hostAllowed(host, providers)), archives, outsideExecutables };

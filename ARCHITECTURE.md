@@ -32,3 +32,5 @@ Created on 2026-10-14 in wave 0. Wave 3, 2026-10-15: `src/index.ts` connects ins
 
 
 The optional check runner uses ew-host's canonical installed build encoding. Its signing callback receives the signed prefix and exact executable, canonical payload, SHA-256 and the exact first five prerequisite rows; the runner refuses a returned hash for different bytes and preserves the payload with the signature in evidence. This closes the structural encoding gap; real signing service/key configuration and artifact acceptance remain open.
+
+The E17 static scan derives all executable containment prefixes from the immutable manifest, validates portable non-overlapping target directories, and permits executable sibling targets. Active-target hosts and network observations remain separate, archives are refused across the complete tree, and signing includes only the selected target.

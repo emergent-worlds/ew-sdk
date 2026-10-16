@@ -2,6 +2,14 @@
 
 Appended newest first. Each entry records the decision, the alternatives considered, and the rationale.
 
+## 2026-10-16: Confine executable scans to manifest-declared target directories
+
+**Decision.** Derive the complete executable containment set from the checked immutable manifest. Require portable, non-overlapping prefixes, scan literal hosts only in the active target, refuse archives anywhere, and sign only the active prefix.
+
+**Alternatives.** Refuse every executable outside the active target, exempt caller-supplied paths, or scan and sign sibling targets as one payload.
+
+**Rationale.** E17's recorded multi-target clarification permits one folder to hold desktop and server builds. The previous scan incorrectly rejected a legitimate sibling executable. Manifest-derived containment preserves refusal of undeclared executable placement without weakening active-target network evidence.
+
 ## 2026-10-16: Bind check signing to the installer's exact canonical bytes
 
 **Decision.** Use ew-host's shared canonical build-list helpers in line six. Supply immutable identity, prefix, exact executable, sorted files, payload and its hash to the signing callback; require the returned hash to match and retain the signed envelope in evidence.

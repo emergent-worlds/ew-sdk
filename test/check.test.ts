@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { createConnection, createServer } from 'node:net';
 import { once } from 'node:events';
 import { CHECK_LINES, checkRows, runBuildCheck, type CheckPlan, type CheckServices } from '../check/runner.js';
-import { folderPath, hostAllowed, scanTree, validateFiles, type CheckFile } from '../check/scan.js';
+import { declaredBuildPrefixes, folderPath, hostAllowed, scanTree, validateFiles, type CheckFile } from '../check/scan.js';
 import { parseLinuxSockets, parseMacNetstat, parseWindowsNetstat, resolveNetworkAsk, sampleSockets } from '../check/sockets.js';
 
 const roots: string[] = [];
@@ -75,7 +75,7 @@ describe('E17 evidence does not invent passes', () => {
 describe('E17 file evidence', () => {
   it('checks actual hashes and modes and finds static host and provider literals', async () => {
     const fixture = await tree({ 'build/server/run': 'fetch("https://provider.example:443/api");', 'manifest.json': '{}' }, ['build/server/run']);
-    const evidence = await scanTree(fixture.root, fixture.files, 'build/server', ['provider.example']);
+    const evidence = await scanTree(fixture.root, fixture.files, 'server', manifest, ['provider.example']);
     expect(evidence.providerHosts).toContain('provider.example:443'); expect(evidence.verifiedFiles).toBe(2);
     expect(hostAllowed('provider.example:443', ['provider.example'])).toBe(true);
     expect(hostAllowed('provider.example:444', ['provider.example:443'])).toBe(false);
@@ -83,15 +83,15 @@ describe('E17 file evidence', () => {
   });
   it('detects archive magic and native executables even when their names and mode conceal their type', async () => {
     const fixture = await tree({ 'build/server/run': 'ordinary', 'payload.dat': Buffer.from([0x50, 0x4b, 5, 6]), 'other/data': Buffer.from([0x7f, 0x45, 0x4c, 0x46]) }, ['build/server/run']);
-    const evidence = await scanTree(fixture.root, fixture.files, 'build/server', []);
+    const evidence = await scanTree(fixture.root, fixture.files, 'server', manifest, []);
     expect(evidence.archives).toEqual(['payload.dat']); expect(evidence.outsideExecutables).toEqual(['other/data']);
   });
   it('refuses changed bytes, escaping links, traversal, and case-colliding paths', async () => {
     const fixture = await tree({ 'build/server/run': 'a' }, ['build/server/run']);
     await writeFile(join(fixture.root, 'build/server/run'), 'b');
-    await expect(scanTree(fixture.root, fixture.files, 'build/server', [])).rejects.toThrow('differs');
+    await expect(scanTree(fixture.root, fixture.files, 'server', manifest, [])).rejects.toThrow('differs');
     await rm(join(fixture.root, 'build/server/run')); await symlink('/dev/null', join(fixture.root, 'build/server/run'));
-    await expect(scanTree(fixture.root, fixture.files, 'build/server', [])).rejects.toThrow('link');
+    await expect(scanTree(fixture.root, fixture.files, 'server', manifest, [])).rejects.toThrow('link');
     for (const path of ['../run', '/run', 'a//b', 'a/./b', 'a\\b', 'C:/run']) expect(() => folderPath(path)).toThrow();
     expect(() => validateFiles([plan.files[0]!, { ...plan.files[0]!, path: 'BUILD/server/run' }])).toThrow('duplicate');
   });
@@ -153,5 +153,26 @@ describe('E17 socket sampling', () => {
     const connected = once(client, 'connect'); const [peer] = await accepted; await connected;
     try { expect((await sampleSockets(process.pid)).endpoints).toContain(`127.0.0.1:${address.port}`); }
     finally { client.destroy(); peer.destroy(); await new Promise<void>(resolve => server.close(() => resolve())); }
+  });
+});
+
+describe('E17 manifest-derived target confinement', () => {
+  const multi = { ...manifest, entry: { installs: { server: 'build/server', 'linux-x64': 'build/linux' } } };
+  it('accepts sibling declared executables and only scans active payload host literals', async () => {
+    const fixture = await tree({ 'build/server/run': '#!/bin/sh\nexit 0', 'build/linux/game': '#!/bin/sh\n# https://provider.example/api\nexit 0' }, ['build/server/run', 'build/linux/game']);
+    const evidence = await scanTree(fixture.root, fixture.files, 'server', multi, ['provider.example']);
+    expect(evidence.outsideExecutables).toEqual([]); expect(evidence.providerHosts).toEqual([]);
+    const active = await scanTree(fixture.root, fixture.files, 'linux-x64', multi, ['provider.example']); expect(active.providerHosts).toEqual(['provider.example']);
+  });
+  it('still refuses undeclared executable placement and archives inside a sibling target', async () => {
+    const fixture = await tree({ 'build/server/run': 'run', 'build/linux/archive.dat': Buffer.from([0x50, 0x4b, 5, 6]), 'other/hidden': Buffer.from([0x7f, 0x45, 0x4c, 0x46]) }, ['build/server/run']);
+    const evidence = await scanTree(fixture.root, fixture.files, 'server', multi, []);
+    expect(evidence.outsideExecutables).toEqual(['other/hidden']); expect(evidence.archives).toEqual(['build/linux/archive.dat']);
+  });
+  it('refuses invalid and overlapping target prefixes, including case aliases', () => {
+    for (const sibling of ['build/server', 'build/server/nested', 'build', 'BUILD/SERVER', '../outside', '/outside', 'build/CON', 'build//linux']) {
+      expect(() => declaredBuildPrefixes({ ...multi, entry: { installs: { server: 'build/server', 'linux-x64': sibling } } }), sibling).toThrow();
+    }
+    expect(declaredBuildPrefixes(multi)).toEqual(['build/server', 'build/linux']);
   });
 });
