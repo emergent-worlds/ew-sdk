@@ -42,6 +42,9 @@ describe('E17 evidence does not invent passes', () => {
     const input = sign.mock.calls[0]![0]; expect(input.fileListSha256).toBe(createHash('sha256').update(input.payload).digest('hex'));
     expect(JSON.parse(input.payload)).toMatchObject({ prefix: 'build/server', entry: plan.entryPath, files: plan.files });
     expect(Object.isFrozen(input)).toBe(true); expect(Object.isFrozen(input.files[0])).toBe(true);
+    expect(input.prerequisiteRows.map(row => row.line)).toEqual([1, 2, 3, 4, 5]); expect(input.prerequisiteRows.every(row => row.result === 'pass')).toBe(true);
+    expect(Object.isFrozen(input.prerequisiteRows[2]!.evidence)).toBe(true); expect(input.prerequisiteRows[2]!.evidence.savedVersions).toEqual(['v2', 'v3']);
+    expect(input.prerequisiteRows[2]!.evidence).not.toBe(passed[2]!.evidence);
     expect(passed[5]!.evidence).toMatchObject({ payload: input.payload, fileListSha256: input.fileListSha256 });
   });
   it('refuses a signing acknowledgment for different canonical bytes', async () => {

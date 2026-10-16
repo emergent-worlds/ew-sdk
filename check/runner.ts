@@ -36,6 +36,8 @@ export type CheckSignInput = Readonly<Omit<BuildList, 'files'>> & {
   readonly files: readonly Readonly<BuildFile>[];
   readonly payload: string;
   readonly fileListSha256: string;
+  /** Exact first five rows, copied/frozen before signing for the claimed-run authority check. */
+  readonly prerequisiteRows: readonly Readonly<CheckRow>[];
 };
 export interface CheckServices {
   /** Commits the game's complete save through the check account's ordinary platform route. */
@@ -76,13 +78,19 @@ export async function checkRows(plan: CheckPlan, scan: StaticEvidence | undefine
       const payload = canonicalBuildList({ domain: 'ew.build-files.v1', folder: plan.folder, version: plan.version, target: BuildTarget.parse(plan.target), prefix: prefix!, entry: plan.entryPath, files: plan.files.filter(file => under(file.path, prefix!)).map(file => ({ path: file.path, sha256: file.sha256, size: file.size, executable: file.executable })) });
       const list = parseBuildList(payload);
       const fileListSha256 = createHash('sha256').update(payload, 'utf8').digest('hex');
-      const input = Object.freeze({ ...list, files: Object.freeze(list.files.map(file => Object.freeze(file))), payload, fileListSha256 });
+      const prerequisiteRows = JSON.parse(JSON.stringify(rows)) as CheckRow[];
+      const input = freezeEvidence({ ...list, files: list.files, payload, fileListSha256, prerequisiteRows });
       const signed = await services.sign!(input);
       if (!signed.signature.trim() || signed.fileListSha256 !== fileListSha256) throw new Error('invalid signing acknowledgment');
       rows.push(row(6, 'pass', { scanPassed: true, signed: true, fileListSha256, signature: signed.signature, payload }));
     } catch { rows.push(row(6, 'fail', { scanPassed: true, signed: false, reason: 'the signing service did not confirm a signature' })); }
   }
   return rows;
+}
+
+function freezeEvidence<T>(value: T): T {
+  if (value && typeof value === 'object') { for (const child of Object.values(value)) freezeEvidence(child); Object.freeze(value); }
+  return value;
 }
 
 function childEnvironment(url: string, token: string): NodeJS.ProcessEnv {
