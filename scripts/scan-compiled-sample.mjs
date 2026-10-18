@@ -2,13 +2,13 @@
 import { createHash } from 'node:crypto';
 import { copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join,resolve } from 'node:path';
 import { scanTree } from '../check/scan.ts';
 const root = await mkdtemp(join(tmpdir(), 'ew-compiled-static-'));
 try {
   const entry = 'build/server/run';
   await mkdir(join(root, 'build/server'), { recursive: true });
-  await copyFile(new URL('../sample/build/server/kestrel-yards', import.meta.url), join(root, entry));
+  await copyFile(process.argv[2]?resolve(process.argv[2]):new URL('../sample/build/server/kestrel-yards', import.meta.url), join(root, entry));
   const artifact = await readFile(join(root, entry));
   const manifest = { name:'Kestrel Yards', kind:'reality', version:'1.0.0', owner:'@mercerpress', entry:{installs:{server:'build/server'}}, asks:{saves:true,while_away:true,agent:'change'} };
   const bytes = Buffer.from(JSON.stringify(manifest));

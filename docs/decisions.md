@@ -1,5 +1,14 @@
 # Decisions: ew-sdk
 
+
+## 2026-10-18: Freeze current standalone packaging without runtime metadata exemptions
+
+**Decision.** Bundle the actual reachable Kestrel Yards headless entry, reject unresolved runtime imports at standalone compilation, disable configuration and dotenv autoloading, omit sourcemaps and minify. Retain a package receipt binding the source bundle, compiler version, actual platform/architecture, exact flags and executable bytes. Permit the static diagnosis command to name that exact fresh artifact without replacing the historical binary.
+
+**Alternatives.** Reuse the October16 binary, treat every packaged-runtime URL as harmless, or alter embedded endpoint bytes after compilation.
+
+**Rationale.** The installed check must inspect fresh self-contained bytes. Tree shaking can remove unreachable application code but does not remove Bun's compiled updater, package-manager, inspector or certificate implementations. Those valid endpoint occurrences remain unresolved and failing under the unchanged production scanner. No runtime-prefix waiver, permission, signature or release authority follows from packaging flags.
+
 Appended newest first. Each entry records the decision, the alternatives considered, and the rationale.
 
 ## 2026-10-18: Preserve exact static findings and refuse incomplete evidence
