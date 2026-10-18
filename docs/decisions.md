@@ -1,6 +1,14 @@
 # Decisions: ew-sdk
 
 
+## 2026-10-18: Minimal macOS headless packaging
+
+**Decision:** Implement the admitted R7 macOS server target with system Foundation/JavaScriptCore and embed every actual SDK, Kestrel and Engine application asset as raw scanned bytes. Retain exact OS/architecture/linkage provenance and the original launcher-only SDK transport. Support remains unavailable until actual composed verification.
+
+**Alternatives:** A custom stripped Bun runtime would require a larger native toolchain; the windowed Tauri target does not substitute for a headless server. The current Bun artifact remains a recorded failed check.
+
+**Rationale:** Current Bun packaging contains real unrelated runtime endpoint implementations. Removing that dependency is preferable to treating those implementations as metadata. Canonical separate per-system builds permit an OS framework dependency without reducing full J11 scope. Astra's focused source admission is recorded in the existing cycle SDK receipt.
+
 ## 2026-10-18: Freeze current standalone packaging without runtime metadata exemptions
 
 **Decision.** Bundle the actual reachable Kestrel Yards headless entry, reject unresolved runtime imports at standalone compilation, disable configuration and dotenv autoloading, omit sourcemaps and minify. Retain a package receipt binding the source bundle, compiler version, actual platform/architecture, exact flags and executable bytes. Permit the static diagnosis command to name that exact fresh artifact without replacing the historical binary.

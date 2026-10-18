@@ -1,3 +1,4 @@
+import { reviewedOccurrence } from './reviewed-metadata.js';
 import { BuildTarget, Manifest, portablePath } from '@emergent-worlds/host';
 import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
@@ -6,7 +7,7 @@ import { lstat, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
 export interface CheckFile { path: string; sha256: string; size: number; executable: boolean }
-export interface HostFinding { path: string; offset: number; raw: string; rawLength: number; rawSha256: string; host: string | null; reason: 'potential-endpoint' | 'invalid-endpoint' | 'partial-token' }
+export interface HostFinding { path: string; offset: number; raw: string; rawLength: number; rawSha256: string; host: string | null; reason: 'potential-endpoint' | 'invalid-endpoint' | 'partial-token' | 'reviewed-non-network'; disposition?: {id: string; revision: string; interpretation: string; artifactSha256: string; contextSha256: string} }
 export interface StaticEvidence { verifiedFiles: number; hosts: string[]; providerHosts: string[]; archives: string[]; outsideExecutables: string[]; hostFindings: HostFinding[]; hostFindingCount: number; hostFindingsComplete: boolean }
 // Evidence capacity is explicit. Incomplete findings cannot admit a build or signing.
 export const MAX_HOST_FINDINGS = 256;
@@ -128,9 +129,11 @@ export async function scanTree(root: string, files: readonly CheckFile[], target
             host = namedHost(parsed.hostname + (explicitPort === undefined ? '' : `:${Number(explicitPort)}`));
           } else host = namedHost(raw);
         } catch { reason = 'invalid-endpoint'; if (explicit && /[^\x00-\x7f]/.test(authority)) croppedFinding = true; } }
-        if (host !== null) hosts.add(host);
+        const rawSha256 = createHash('sha256').update(raw,'latin1').digest('hex');
+        const reviewed = host === null ? undefined : reviewedOccurrence(file.sha256, file.size, target, file.path, {offset, rawLength:raw.length, rawSha256, host});
+        if (host !== null && !reviewed) hosts.add(host);
         hostFindingCount++; if(raw.length > 512) croppedFinding = true;
-        if (hostFindings.length < MAX_HOST_FINDINGS) hostFindings.push({path:file.path, offset, raw:raw.slice(0,512), rawLength:raw.length, rawSha256:createHash('sha256').update(raw,'latin1').digest('hex'), host, reason});
+        if (hostFindings.length < MAX_HOST_FINDINGS) hostFindings.push({path:file.path, offset, raw:raw.slice(0,512), rawLength:raw.length, rawSha256, host, reason: reviewed ? 'reviewed-non-network' : reason, ...(reviewed ? {disposition:{id:reviewed.id, revision:reviewed.revision, interpretation:reviewed.interpretation, artifactSha256:file.sha256, contextSha256:reviewed.contextSha256}} : {})});
       }
     };
     for await (const chunk of createReadStream(path)) {

@@ -28,7 +28,8 @@
     "check:sample": "pnpm build:sample && node scripts/check-sample.mjs",
     "check:runner": "pnpm build && pnpm build:sample && node scripts/check-runner.mjs",
     "build:sample:server": "node scripts/build-standalone-sample.mjs",
-    "check:server-session": "pnpm build:sample && node scripts/check-server-session.mjs"
+    "check:server-session": "pnpm build:sample && node scripts/check-server-session.mjs",
+    "build:sample:server:macos": "node scripts/build-native-headless.mjs"
   },
   "dependencies": {
     "@emergent-worlds/host": "github:emergent-worlds/ew-host#e52e4a8"

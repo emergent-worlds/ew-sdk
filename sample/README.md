@@ -40,3 +40,8 @@ Desktop and phone browser checks, local Node and Bun lifecycle checks, and the m
 
 
 The standalone server build uses `scripts/build-standalone-sample.mjs` directly from the current headless source. It rejects unresolved imports, disables Bun configuration/dotenv autoloads and emits an adjacent exact-byte build receipt. It does not rebuild the web page; use `pnpm build:sample` for the browser/worker entries. To preserve an older local diagnostic binary, provide a different output path to the script. These flags remove unused bundled application code, not Bun runtime implementations. Current updater, inspector, package and certificate endpoint findings remain refused by the production scanner; the fresh build is not a signed or accepted release.
+
+
+### Minimal macOS server target
+
+`pnpm build:sample:server:macos` builds a separate headless macOS13 arm64 executable using system Foundation and JavaScriptCore. Every actual SDK, Kestrel and Engine asset is embedded as raw JavaScript; no Node, Bun, Homebrew, developer toolchain or downloaded application asset is required to launch it. The adjacent `.build.json` records exact artifact/source hashes, target and system linkage. The same ordinary SDK connection and game core are used for checks. This target is under verification and is not a signed or supported release. Windows/Linux, installed window, web and full J11 acceptance remain open.
