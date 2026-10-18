@@ -1,11 +1,15 @@
 import { BuildTarget, Manifest, portablePath } from '@emergent-worlds/host';
 import { createHash } from 'node:crypto';
+import { isIP } from 'node:net';
 import { createReadStream } from 'node:fs';
 import { lstat, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
 export interface CheckFile { path: string; sha256: string; size: number; executable: boolean }
-export interface StaticEvidence { verifiedFiles: number; hosts: string[]; providerHosts: string[]; archives: string[]; outsideExecutables: string[] }
+export interface HostFinding { path: string; offset: number; raw: string; rawLength: number; rawSha256: string; host: string | null; reason: 'potential-endpoint' | 'invalid-endpoint' | 'partial-token' }
+export interface StaticEvidence { verifiedFiles: number; hosts: string[]; providerHosts: string[]; archives: string[]; outsideExecutables: string[]; hostFindings: HostFinding[]; hostFindingCount: number; hostFindingsComplete: boolean }
+// Evidence capacity is explicit. Incomplete findings cannot admit a build or signing.
+export const MAX_HOST_FINDINGS = 256;
 
 export function folderPath(value: string): string {
   if (!value || value.length > 512 || value.includes('\\') || value.includes('\0') || isAbsolute(value) || value.split('/').some(part => !part || part === '.' || part === '..') || /^[a-z]:/i.test(value)) throw new Error('the check tree contains an invalid path');
@@ -42,9 +46,22 @@ export function validateFiles(files: readonly CheckFile[]): void {
 }
 
 export function namedHost(value: string): string {
-  const host = value.toLowerCase();
-  if (!/^(?:[a-z0-9.-]+|\[[a-f0-9:]+\])(?::\d{1,5})?$/.test(host)) throw new Error('the check received an invalid host');
-  return host.startsWith('[') ? `${new URL(`http://${host}`).hostname}${host.match(/:\d+$/)?.[0] ?? ''}` : host;
+  const lower = value.toLowerCase();
+  const match = /^(\[[a-f0-9:]+\]|[^:]+)(?::(\d{1,5}))?$/.exec(lower);
+  if (!match) throw new Error('the check received an invalid host');
+  const host = match[1]!, port = match[2];
+  if (port !== undefined && Number(port) > 65535) throw new Error('the check received an invalid port');
+  let normalized = host;
+  if (host.startsWith('[')) {
+    if (isIP(host.slice(1, -1)) !== 6) throw new Error('the check received an invalid IPv6 host');
+    normalized = new URL(`http://${host}`).hostname;
+  } else if (/^[0-9.]+$/.test(host)) {
+    if (isIP(host) !== 4) throw new Error('the check received an invalid IPv4 host');
+  } else {
+    normalized = host.endsWith('.') ? host.slice(0,-1) : host;
+    if (normalized.length > 253 || !normalized.split('.').every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))) throw new Error('the check received an invalid DNS host');
+  }
+  return normalized + (port === undefined ? '' : `:${Number(port)}`);
 }
 export function hostAllowed(endpoint: string, allowed: readonly string[]): boolean {
   const value = namedHost(endpoint);
@@ -59,7 +76,7 @@ function archiveMagic(bytes: Buffer): boolean {
   return (bytes[0] === 0x50 && bytes[1] === 0x4b && [3, 5, 7].includes(bytes[2] ?? 0) && [4, 6, 8].includes(bytes[3] ?? 0)) || bytes.subarray(0, 2).equals(Buffer.from([0x1f, 0x8b])) || bytes.subarray(0, 6).equals(Buffer.from([0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c])) || bytes.subarray(0, 4).toString('ascii') === 'Rar!' || bytes.subarray(0, 3).toString('ascii') === 'BZh' || bytes.subarray(0, 6).equals(Buffer.from([0xfd, 0x37, 0x7a, 0x58, 0x5a, 0])) || bytes.subarray(257, 262).toString('ascii') === 'ustar';
 }
 const executableMagic = (bytes: Buffer) => bytes.subarray(0, 2).toString('ascii') === 'MZ' || bytes.subarray(0, 2).toString('ascii') === '#!' || ['7f454c46', 'feedface', 'feedfacf', 'cefaedfe', 'cffaedfe', 'cafebabe', 'bebafeca', 'cafebabf', 'bfbafeca'].includes(bytes.subarray(0, 4).toString('hex'));
-const hostPattern = /(?:\b(?:https?|wss?):\/\/)(\[[a-f\d:]+\]|[a-z\d.-]+)(:\d{1,5})?|\b((?:\d{1,3}\.){3}\d{1,3})(:\d{1,5})?|\b((?:[a-z\d](?:[a-z\d-]*[a-z\d])?\.)+(?:com|net|org|io|dev|app|ai|co|cloud|local))(:\d{1,5})?/gi;
+const hostPattern = /\b(https?|wss?):\/\/([^\s/?#"'`<>(){}\\\x00-\x20]+)|\b((?:\d{1,3}\.){3}\d{1,3})(:\d{1,5})?|\b((?:[a-z\d](?:[a-z\d-]*[a-z\d])?\.)+(?:com|net|org|io|dev|app|ai|co|cloud|local))(:\d{1,5})?/gi;
 
 /** Prefix authority comes only from the parsed immutable manifest, never a caller exemption. */
 export function declaredBuildPrefixes(input: unknown): string[] {
@@ -81,29 +98,57 @@ export async function scanTree(root: string, files: readonly CheckFile[], target
   if (!prefix) throw new Error('the active build target is not declared');
   providers.forEach(namedHost);
   const hosts = new Set<string>();
+  const hostFindings: HostFinding[] = []; let hostFindingCount = 0; let croppedFinding = false;
   const archives: string[] = []; const outsideExecutables: string[] = [];
   for (const file of files) {
     const path = await checkedPath(root, file.path);
     const stat = await lstat(path);
     if (stat.size !== file.size || (process.platform !== 'win32' && Boolean(stat.mode & 0o111) !== file.executable)) throw new Error('a file differs from the checked tree');
-    const hash = createHash('sha256'); let count = 0; let tail = ''; let first = Buffer.alloc(0);
+    const hash = createHash('sha256'); let count = 0; let tail = ''; let first = Buffer.alloc(0); let processedThrough = -1;
+    const inspect = (text: string, base: number, final: boolean) => {
+      for (const match of text.matchAll(hostPattern)) {
+        const end = match.index! + match[0].length;
+        // Leave possible boundary-spanning tokens for the next chunk, including right context.
+        if (!final && end > text.length - 2048) { if(match[0].length > 2048) croppedFinding = true; continue; }
+        const absoluteEnd = base + end;
+        if (absoluteEnd <= processedThrough) continue;
+        processedThrough = absoluteEnd;
+        const explicit = match[1] !== undefined;
+        const authority = explicit ? match[2]! : '';
+        const raw = explicit ? authority.slice(authority.lastIndexOf('@')+1) : `${match[3] ?? match[5]}${match[4] ?? match[6] ?? ''}`;
+        const offset = base + match.index! + match[0].lastIndexOf(raw);
+        const left = text[match.index! - 1] ?? '', right = text[end] ?? '';
+        let host: string | null = null, reason: HostFinding['reason'] = 'potential-endpoint';
+        if (!explicit && (/[a-z0-9_.-]/i.test(left) || /[a-z0-9_.:@-]/i.test(right))) reason = 'partial-token';
+        else { try {
+          if (explicit) {
+            // Preserve byte offsets, but decode UTF-8 strictly before URL normalization.
+            const decodedAuthority = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.from(authority, 'latin1'));
+            const parsed = new URL(`${match[1]}://${decodedAuthority}/`), explicitPort = /:(\d+)$/.exec(raw)?.[1];
+            host = namedHost(parsed.hostname + (explicitPort === undefined ? '' : `:${Number(explicitPort)}`));
+          } else host = namedHost(raw);
+        } catch { reason = 'invalid-endpoint'; if (explicit && /[^\x00-\x7f]/.test(authority)) croppedFinding = true; } }
+        if (host !== null) hosts.add(host);
+        hostFindingCount++; if(raw.length > 512) croppedFinding = true;
+        if (hostFindings.length < MAX_HOST_FINDINGS) hostFindings.push({path:file.path, offset, raw:raw.slice(0,512), rawLength:raw.length, rawSha256:createHash('sha256').update(raw,'latin1').digest('hex'), host, reason});
+      }
+    };
     for await (const chunk of createReadStream(path)) {
       const bytes = Buffer.from(chunk); count += bytes.length; hash.update(bytes);
       if (count > file.size) throw new Error('a file changed during the scan');
       if (first.length < 512) first = Buffer.concat([first, bytes]).subarray(0, 512);
       if (under(file.path, prefix)) {
-        const text = tail + bytes.toString('utf8');
-        for (const match of text.matchAll(hostPattern)) {
-          const host = `${match[1] ?? match[3] ?? match[5]}${match[2] ?? match[4] ?? match[6] ?? ''}`.toLowerCase();
-          try { hosts.add(namedHost(host)); } catch { /* Invalid embedded literals remain outside the hostname grammar. */ }
-        }
-        tail = text.slice(-2048);
+        // Latin-1 keeps one character per byte; endpoint grammar is ASCII and offsets are exact.
+        const text = tail + bytes.toString('latin1');
+        inspect(text, count - bytes.length - tail.length, false);
+        tail = text.slice(-4096);
       }
     }
+    if (under(file.path, prefix)) inspect(tail, count - tail.length, true);
     if (count !== file.size || hash.digest('hex') !== file.sha256) throw new Error('a file differs from the checked tree');
     if (archiveName.test(file.path) || archiveMagic(first)) archives.push(file.path);
     if ((file.executable || executableMagic(first)) && !prefixes.some(declared => under(file.path, declared))) outsideExecutables.push(file.path);
   }
   const sorted = [...hosts].sort();
-  return { verifiedFiles: files.length, hosts: sorted, providerHosts: sorted.filter(host => hostAllowed(host, providers)), archives, outsideExecutables };
+  return { verifiedFiles: files.length, hosts: sorted, providerHosts: sorted.filter(host => hostAllowed(host, providers)), archives, outsideExecutables, hostFindings, hostFindingCount, hostFindingsComplete: !croppedFinding && hostFindingCount <= MAX_HOST_FINDINGS };
 }

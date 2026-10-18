@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { createConnection, createServer } from 'node:net';
 import { once } from 'node:events';
 import { CHECK_LINES, checkRows, runBuildCheck, type CheckPlan, type CheckServices } from '../check/runner.js';
-import { declaredBuildPrefixes, folderPath, hostAllowed, scanTree, validateFiles, type CheckFile } from '../check/scan.js';
+import { declaredBuildPrefixes, folderPath, hostAllowed, namedHost, MAX_HOST_FINDINGS, scanTree, validateFiles, type CheckFile } from '../check/scan.js';
 import { parseLinuxSockets, parseMacNetstat, parseWindowsNetstat, resolveNetworkAsk, sampleSockets } from '../check/sockets.js';
 
 const roots: string[] = [];
@@ -23,7 +23,7 @@ async function tree(entries: Record<string, string | Buffer>, executables: strin
 }
 const manifest = { name: 'Kestrel Yards', kind: 'reality', version: '1.0.0', owner: '@mercerpress', entry: { installs: { server: 'build/server' } }, asks: { saves: true } };
 const plan: CheckPlan = { root: '', folder: 'kestrel', version: 'version-1', target: 'server', manifest, entryPath: 'build/server/run', files: [{ path: 'build/server/run', size: 1, sha256: 'a'.repeat(64), executable: true }], providerHosts: ['provider.example'] };
-const scan = { verifiedFiles: 1, hosts: [], providerHosts: [], archives: [], outsideExecutables: [] };
+const scan = { verifiedFiles: 1, hosts: [], providerHosts: [], archives: [], outsideExecutables: [], hostFindings: [], hostFindingCount: 0, hostFindingsComplete: true };
 const launch = { admitted: true, runMs: 60000, requestedSave: true, savedVersions: ['v2', 'v3'], saveReasons: ['interval', 'leaving'], quitSaved: true, modelJobs: [], modelFailures: 0, refused: 0, endpoints: [], observedEndpoints: ['127.0.0.1:1234'], sdkSamples: 240, samples: 240, sampleErrors: 0, missedSamples: 0, sampler: 'fixture' };
 
 describe('E17 evidence does not invent passes', () => {
@@ -175,4 +175,48 @@ describe('E17 manifest-derived target confinement', () => {
     }
     expect(declaredBuildPrefixes(multi)).toEqual(['build/server', 'build/linux']);
   });
+});
+
+
+describe('packaged runtime endpoint classification retains its evidence',()=>{
+ it('rejects malformed DNS, IPv4 and ports without exempting valid runtime literals',async()=>{
+  const text='https://.css https://.jpg 1.2.840.100 1.3.6.1.4.1 https://runtime.example/docs https://provider.example:443/api';
+  const fixture=await tree({'build/server/run':text},['build/server/run']);
+  const evidence=await scanTree(fixture.root,fixture.files,'server',manifest,['provider.example']);
+  expect(evidence.hosts).toEqual(['provider.example:443','runtime.example']);
+  expect(evidence.hostFindingsComplete).toBe(true);
+  expect(evidence.hostFindings.some(f=>f.raw==='.css'&&f.reason==='invalid-endpoint')).toBe(true);
+  expect(evidence.hostFindings.some(f=>f.raw==='1.3.6.1'&&f.reason==='partial-token')).toBe(true);
+  for(const finding of evidence.hostFindings)expect(Buffer.from(text).subarray(finding.offset,finding.offset+finding.rawLength).toString('latin1')).toBe(finding.raw);
+  expect((await checkRows(plan,evidence,launch,{}))[4]!.result).toBe('fail');
+  for(const value of ['.css','a..com','-bad.com','bad-.com','1.2.840.100','127.0.0.1:65536'])expect(()=>namedHost(value)).toThrow();
+  expect(namedHost('[0:0:0:0:0:0:0:1]:00443')).toBe('[::1]:443');expect(namedHost('Runtime.Example.:443')).toBe('runtime.example:443');
+ });
+ it('uses full URL authority for user info and empty ports without retaining credentials',async()=>{
+  const text='https://reader:synthetic@provider.example:/api https://reader:synthetic@[::1]:443/api';
+  const fixture=await tree({'build/server/run':text},['build/server/run']);
+  const evidence=await scanTree(fixture.root,fixture.files,'server',manifest,['provider.example']);
+  expect(evidence.hosts).toEqual(['[::1]:443','provider.example']);expect(evidence.providerHosts).toEqual(['provider.example']);
+  expect(evidence.hostFindings.every(f=>!f.raw.includes('synthetic'))).toBe(true);
+  for(const f of evidence.hostFindings)expect(Buffer.from(text).subarray(f.offset,f.offset+f.rawLength).toString()).toBe(f.raw);
+ });
+ it('finds a boundary-spanning host once with byte-accurate offsets after non-ASCII bytes',async()=>{
+  const prefix=Buffer.alloc(65525,0xff),literal=Buffer.from(' https://provider.example:443/path '),bytes=Buffer.concat([prefix,literal,Buffer.alloc(10000,0)]);
+  const fixture=await tree({'build/server/run':bytes},['build/server/run']);
+  const evidence=await scanTree(fixture.root,fixture.files,'server',manifest,['provider.example']);
+  expect(evidence.hosts).toEqual(['provider.example:443']);expect(evidence.hostFindings).toHaveLength(1);
+  const finding=evidence.hostFindings[0]!;expect(finding.offset).toBe(prefix.length+9);expect(bytes.subarray(finding.offset,finding.offset+finding.rawLength).toString()).toBe('provider.example:443');
+ });
+ it('marks an oversized authority token incomplete instead of losing it at the streaming boundary',async()=>{
+  const fixture=await tree({'build/server/run':'https://'+'a'.repeat(70000)+'@provider.example/path'},['build/server/run']);
+  const evidence=await scanTree(fixture.root,fixture.files,'server',manifest,['provider.example']);
+  expect(evidence.hostFindingsComplete).toBe(false);expect((await checkRows(plan,evidence,launch,{}))[4]!.result).toBe('fail');
+ });
+ it('keeps signing unavailable when occurrence evidence exceeds its explicit capacity',async()=>{
+  const fixture=await tree({'build/server/run':Array(MAX_HOST_FINDINGS+1).fill('https://runtime.example ').join('')},['build/server/run']);
+  const evidence=await scanTree(fixture.root,fixture.files,'server',manifest,[]);
+  expect(evidence.hostFindings).toHaveLength(MAX_HOST_FINDINGS);expect(evidence.hostFindingCount).toBe(MAX_HOST_FINDINGS+1);expect(evidence.hostFindingsComplete).toBe(false);
+  const sign=vi.fn(),permitted={...plan,manifest:{...manifest,asks:{...manifest.asks,network:['runtime.example']}}};
+  const rows=await checkRows(permitted,evidence,launch,{sign});expect(rows[4]!.result).toBe('fail');expect(rows[5]!.result).toBe('pending');expect(sign).not.toHaveBeenCalled();
+ });
 });

@@ -2,6 +2,14 @@
 
 Appended newest first. Each entry records the decision, the alternatives considered, and the rationale.
 
+## 2026-10-18: Preserve exact static findings and refuse incomplete evidence
+
+**Decision.** Validate endpoint syntax and complete token boundaries before classifying candidate literals as potential network reach. Retain exact artifact offsets and raw host hashes, without URL credentials. Report bounded occurrence evidence and refuse passing/signing when its capacity is exceeded. Preserve unresolved valid runtime domains as blockers.
+
+**Alternatives.** Treat every address-shaped substring as an endpoint, exempt all packaged-runtime strings, or infer safety from quiet sampled traffic.
+
+**Rationale.** The actual self-contained Kestrel check proved execution and account saves but exposed549 raw literal findings, including malformed names and numeric metadata. The cycle's independent R7 recommendation admits a technical extraction correction and requires genuine metadata disposition or further acceptance evidence before valid findings can be cleared. No founder policy or network grant is changed.
+
 ## 2026-10-16: Exercise the actual reserved native child adapter
 
 **Decision.** Use the sibling server's production child helper in the compiled development probe and save the requested handoff reason in the shared quit handler. Check retained failed save/end, correlated quit, exclusive stage lifetime, child reaping and exact saved-state resume.
