@@ -62,7 +62,8 @@ interface LaunchEvidence {
 export async function checkRows(plan: CheckPlan, scan: StaticEvidence | undefined, launch: LaunchEvidence | undefined, services: Pick<CheckServices, 'sign'>): Promise<CheckRow[]> {
   const manifest = Manifest.safeParse(plan.manifest);
   const prefix = manifest.success ? manifest.data.entry?.installs?.[plan.target as BuildTarget] : undefined;
-  const entry = Boolean(prefix && under(plan.entryPath, prefix) && plan.files.some(file => file.path === plan.entryPath && file.executable));
+  const declared=manifest.success?manifest.data.entry?.executables?.[plan.target as BuildTarget]:undefined;
+  const entry = Boolean(prefix && (!declared||declared===plan.entryPath) && under(plan.entryPath, prefix) && plan.files.some(file => file.path === plan.entryPath && file.executable));
   const row = (line: number, result: CheckResult, evidence: Record<string, unknown>): CheckRow => ({ line, name: CHECK_LINES[line - 1]!, result, evidence });
   const fullRun = Boolean(launch?.admitted && launch.runMs >= CHECK_DURATION_MS && !launch.failure);
   const network = manifest.success ? manifest.data.asks?.network ?? [] : [];
@@ -220,7 +221,7 @@ export async function runBuildCheck(plan: CheckPlan, services: CheckServices, si
     if (!plan.folder || !plan.version || !manifest.asks) throw new Error('the check needs an immutable folder version and asks');
     validateFiles(plan.files); folderPath(plan.entryPath);
     const prefix = manifest.entry?.installs?.[target];
-    if (!prefix || !under(plan.entryPath, folderPath(prefix)) || !plan.files.some(file => file.path === plan.entryPath && file.executable)) throw new Error('the target has no executable entry');
+    if (!prefix || manifest.entry?.executables&&manifest.entry.executables[target]!==plan.entryPath || !under(plan.entryPath, folderPath(prefix)) || !plan.files.some(file => file.path === plan.entryPath && file.executable)) throw new Error('the target has no executable entry');
     scan = await scanTree(plan.root, plan.files, target, manifest, plan.providerHosts);
     const manifestFile = plan.files.find(file => file.path === 'manifest.json');
     const manifestBytes = await readFile(await checkedPath(plan.root, 'manifest.json'));

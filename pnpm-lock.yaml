@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@emergent-worlds/host':
-        specifier: github:emergent-worlds/ew-host#e52e4a8
-        version: https://codeload.github.com/emergent-worlds/ew-host/tar.gz/e52e4a8
+        specifier: github:emergent-worlds/ew-host#31826ec2a9bb40f3ee3d64694026333f3fc4e51e
+        version: https://codeload.github.com/emergent-worlds/ew-host/tar.gz/31826ec2a9bb40f3ee3d64694026333f3fc4e51e
     devDependencies:
       '@emergentworlds/emergence-engine':
         specifier: github:emergent-worlds/emergence-engine#95a4048
@@ -39,13 +39,13 @@ importers:
 
 packages:
 
-  '@emergent-worlds/host@https://codeload.github.com/emergent-worlds/ew-host/tar.gz/c4414c4e7bc3b766103faf59783fd75c619f7e06':
-    resolution: {tarball: https://codeload.github.com/emergent-worlds/ew-host/tar.gz/c4414c4e7bc3b766103faf59783fd75c619f7e06}
-    version: 0.3.3
+  '@emergent-worlds/host@https://codeload.github.com/emergent-worlds/ew-host/tar.gz/31826ec2a9bb40f3ee3d64694026333f3fc4e51e':
+    resolution: {tarball: https://codeload.github.com/emergent-worlds/ew-host/tar.gz/31826ec2a9bb40f3ee3d64694026333f3fc4e51e}
+    version: 0.3.11
     engines: {node: '>=24'}
 
-  '@emergent-worlds/host@https://codeload.github.com/emergent-worlds/ew-host/tar.gz/e52e4a8':
-    resolution: {tarball: https://codeload.github.com/emergent-worlds/ew-host/tar.gz/e52e4a8}
+  '@emergent-worlds/host@https://codeload.github.com/emergent-worlds/ew-host/tar.gz/c4414c4e7bc3b766103faf59783fd75c619f7e06':
+    resolution: {tarball: https://codeload.github.com/emergent-worlds/ew-host/tar.gz/c4414c4e7bc3b766103faf59783fd75c619f7e06}
     version: 0.3.3
     engines: {node: '>=24'}
 
@@ -796,12 +796,12 @@ packages:
 
 snapshots:
 
-  '@emergent-worlds/host@https://codeload.github.com/emergent-worlds/ew-host/tar.gz/c4414c4e7bc3b766103faf59783fd75c619f7e06':
+  '@emergent-worlds/host@https://codeload.github.com/emergent-worlds/ew-host/tar.gz/31826ec2a9bb40f3ee3d64694026333f3fc4e51e':
     dependencies:
       semver: 7.8.5
       zod: 3.25.76
 
-  '@emergent-worlds/host@https://codeload.github.com/emergent-worlds/ew-host/tar.gz/e52e4a8':
+  '@emergent-worlds/host@https://codeload.github.com/emergent-worlds/ew-host/tar.gz/c4414c4e7bc3b766103faf59783fd75c619f7e06':
     dependencies:
       semver: 7.8.5
       zod: 3.25.76

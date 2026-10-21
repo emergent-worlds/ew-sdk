@@ -1,5 +1,13 @@
 # Decisions: ew-sdk
 
+## 2026-10-21: Bind creator-declared executable selection before launch
+
+**Decision.** Retain Host0.3.11's exact executable map in the trusted checker and require entry equality before preparation can reach launch or signing. Preserve explicit declarationless legacy selection and the existing signed encoding. Scope unchanged exact-byte technical interpretations to the finite relocated sample path as well as target/hash/size/context/occurrence.
+
+**Alternatives.** A deployment-wide Kestrel filename cannot serve other creator layouts. Ignoring a present declaration or applying a path-independent scanner exemption would lose its exact authority boundary.
+
+**Rationale.** Entry selection comes from the verified immutable manifest rather than creator-supplied execution settings. The same thin-arm64 kernel executor remains responsible for actual confinement and refuses unsupported targets or direct network asks. Source and finite metadata reuse do not themselves close the new ordinary service/native flow.
+
 ## 2026-10-21: Confine current macOS checks and bind native window bytes
 
 **Decision.** Supply a bundled current-host kernel executor with exact claim/CPU matching, read-only immutable files, private scratch, a sterile child environment, SDK-port-only TCP and explicit other-process information denial. Package a small AppKit presentation around the existing SDK/JSC/Kestrel core, keeping headless checks UI-free and requiring new exact artifact checks for each program version.

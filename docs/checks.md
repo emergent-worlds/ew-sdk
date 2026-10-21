@@ -1,5 +1,7 @@
 # Local installed-build checks
 
+Host0.3.11 optionally declares exact per-target executable paths in `entry.executables`, beside unchanged target prefixes. A present declaration must equal the plan's entry before scanning/launch and before canonical signing. Trusted manifest-selected dispatch reads that immutable declaration; declarationless legacy dispatch must explicitly supply its fixed entry. Neither mode can substitute a different entry when a declaration is present. The signed `ew.build-files.v1` encoding remains unchanged.
+
 `@emergent-worlds/sdk/check` supplies `runBuildCheck(plan, services, signal?)` for one declared target. It is Node 24 tooling. The ordinary SDK entry does not load the check runner, socket server, or process tools. The check subpath bundles its local WebSocket dependency; it adds no runtime dependency to the ordinary SDK binding.
 
 The trusted deployment may additionally supply the fourth `CheckLaunchIsolation` argument. The [current macOS executor](macos-check-executor.md) is a concrete kernel boundary built separately as a hash-pinned Journeys module. The ordinary three-argument tooling remains a local lifecycle fixture; a declared executor or a local child is not evidence of isolation.

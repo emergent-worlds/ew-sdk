@@ -32,7 +32,7 @@
     "build:sample:server:macos": "node scripts/build-native-headless.mjs"
   },
   "dependencies": {
-    "@emergent-worlds/host": "github:emergent-worlds/ew-host#e52e4a8"
+    "@emergent-worlds/host": "github:emergent-worlds/ew-host#31826ec2a9bb40f3ee3d64694026333f3fc4e51e"
   },
   "devDependencies": {
     "@emergentworlds/emergence-engine": "github:emergent-worlds/emergence-engine#95a4048",

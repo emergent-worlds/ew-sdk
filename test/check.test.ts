@@ -27,6 +27,18 @@ const scan = { verifiedFiles: 1, hosts: [], providerHosts: [], archives: [], out
 const launch = { admitted: true, runMs: 60000, requestedSave: true, savedVersions: ['v2', 'v3'], saveReasons: ['interval', 'leaving'], quitSaved: true, modelJobs: [], modelFailures: 0, refused: 0, endpoints: [], observedEndpoints: ['127.0.0.1:1234'], sdkSamples: 240, samples: 240, sampleErrors: 0, missedSamples: 0, sampler: 'fixture' };
 
 describe('E17 evidence does not invent passes', () => {
+  it('binds a declared executable to row one and canonical signing without a legacy fixed-entry substitution',async()=>{
+    const declared={...plan,manifest:{...manifest,entry:{...manifest.entry,executables:{server:plan.entryPath}}}};
+    const sign=vi.fn<NonNullable<CheckServices['sign']>>(async input=>({signature:'controlled unit acknowledgement',fileListSha256:input.fileListSha256}));
+    expect((await checkRows(declared,scan,launch,{sign}))[0]!.result).toBe('pass');expect(sign).toHaveBeenCalledOnce();
+    sign.mockClear();const wrong={...declared,entryPath:'build/server/other',files:[{...plan.files[0]!,path:'build/server/other'}]};
+    expect((await checkRows(wrong,scan,launch,{sign}))[0]!.result).toBe('fail');expect(sign).not.toHaveBeenCalled();
+  });
+  it('refuses a declared executable mismatch before scan, isolation launch or save',async()=>{
+    const isolation={launch:vi.fn()},save=vi.fn();
+    const result=await runBuildCheck({...plan,manifest:{...manifest,entry:{...manifest.entry,executables:{server:'build/server/other'}}}},{save},undefined,isolation);
+    expect(result.passed).toBe(false);expect(isolation.launch).not.toHaveBeenCalled();expect(save).not.toHaveBeenCalled();
+  });
   it('keeps the six recorded names in order, and keeps unsigned checks pending', async () => {
     const rows = await checkRows(plan, scan, launch, {});
     expect(rows.map(row => row.name)).toEqual(CHECK_LINES); expect(rows.map(row => row.line)).toEqual([1, 2, 3, 4, 5, 6]);
