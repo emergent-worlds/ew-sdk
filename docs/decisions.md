@@ -1,5 +1,13 @@
 # Decisions: ew-sdk
 
+## 2026-10-21: Confine current macOS checks and bind native window bytes
+
+**Decision.** Supply a bundled current-host kernel executor with exact claim/CPU matching, read-only immutable files, private scratch, a sterile child environment, SDK-port-only TCP and explicit other-process information denial. Package a small AppKit presentation around the existing SDK/JSC/Kestrel core, keeping headless checks UI-free and requiring new exact artifact checks for each program version.
+
+**Alternatives.** A declared isolation flag or ordinary subprocess cannot protect the host. General host/network/process allowances would weaken that boundary. Reusing the old headless signature cannot authenticate new window bytes.
+
+**Rationale.** The admitted R7 journey requires actual isolation and a checked window artifact before normal installed composition. The available macOS kernel launcher can enforce this bounded target now, and executable negative probes measure its actual boundary. Its deprecated status and unsupported targets remain explicit. Official signing configuration, independent integrated acceptance and the ordinary installed App journey are separate gates.
+
 
 ## 2026-10-18: Minimal macOS headless packaging
 

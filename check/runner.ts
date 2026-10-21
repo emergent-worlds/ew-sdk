@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -45,6 +45,10 @@ export interface CheckServices {
   modelCall?: HostHandlers['modelCall'];
   /** Integration signs these exact canonical bytes with the builds key, only after all prerequisites pass. */
   sign?: (input: CheckSignInput) => Promise<{ signature: string; fileListSha256: string }>;
+}
+/** Trusted deployment adapter. Uploaded code cannot select or configure this boundary. */
+export interface CheckLaunchIsolation {
+  launch(input: { entry: string; root: string; sdkUrl: string; sdkToken: string; signal?: AbortSignal }): Promise<{ child: ChildProcess; dispose(): Promise<void> }>;
 }
 export interface BuildCheckEvidence { folder: string; version: string; target: string; rows: CheckRow[]; passed: boolean }
 interface LaunchEvidence {
@@ -110,7 +114,7 @@ function socketTransport(socket: WebSocket): Transport {
   };
 }
 
-async function launchBuild(plan: CheckPlan, manifest: Manifest, services: CheckServices, signal?: AbortSignal): Promise<LaunchEvidence> {
+async function launchBuild(plan: CheckPlan, manifest: Manifest, services: CheckServices, signal?: AbortSignal, isolation?: CheckLaunchIsolation): Promise<LaunchEvidence> {
   const out: LaunchEvidence = { admitted: false, runMs: 0, requestedSave: false, savedVersions: [], saveReasons: [], quitSaved: false, modelJobs: [], modelFailures: 0, refused: 0, endpoints: [], observedEndpoints: [], sdkSamples: 0, samples: 0, sampleErrors: 0, missedSamples: 0, sampler: '' };
   const entry = await checkedPath(plan.root, plan.entryPath);
   const allowedEndpoints = await resolveNetworkAsk(manifest.asks!.network);
@@ -158,7 +162,10 @@ async function launchBuild(plan: CheckPlan, manifest: Manifest, services: CheckS
       }, ADMISSION_MS, 'core');
     });
   });
-  const child = spawn(entry, [], { cwd: plan.root, env: childEnvironment(`ws://${sdkEndpoint}/`, token), stdio: 'ignore', windowsHide: true });
+  let isolated: Awaited<ReturnType<CheckLaunchIsolation['launch']>> | undefined;
+  try { isolated = await isolation?.launch({ entry, root: plan.root, sdkUrl: `ws://${sdkEndpoint}/`, sdkToken: token, signal }); }
+  catch { clearTimeout(admission); ready.catch(() => {}); for (const socket of server.clients) socket.terminate(); await new Promise<void>(resolve => server.close(() => resolve())); throw Error('the isolated check launcher is unavailable'); }
+  const child = isolation ? isolated!.child : spawn(entry, [], { cwd: plan.root, env: childEnvironment(`ws://${sdkEndpoint}/`, token), stdio: 'ignore', windowsHide: true });
   const stop = new AbortController();
   const runSignal = signal ? AbortSignal.any([stop.signal, signal]) : stop.signal;
   let exited = false; let sampling = false; let pendingSample: Promise<void> = Promise.resolve();
@@ -197,7 +204,7 @@ async function launchBuild(plan: CheckPlan, manifest: Manifest, services: CheckS
     if (!exited) child.kill();
     // The child has already answered quit; force cleanup if it does not terminate.
     const force = setTimeout(() => child.kill('SIGKILL'), ADMISSION_MS);
-    try { await exit; } finally { clearTimeout(force); }
+    try { await exit; } finally { clearTimeout(force); await isolated?.dispose(); }
   }
   out.endpoints = [...new Set(out.endpoints)].sort();
   out.observedEndpoints = [...new Set(out.observedEndpoints)].sort();
@@ -205,7 +212,7 @@ async function launchBuild(plan: CheckPlan, manifest: Manifest, services: CheckS
 }
 
 /** Runs one declared target. Queue, account routing, isolation, and signing remain the caller's obligations. */
-export async function runBuildCheck(plan: CheckPlan, services: CheckServices, signal?: AbortSignal): Promise<BuildCheckEvidence> {
+export async function runBuildCheck(plan: CheckPlan, services: CheckServices, signal?: AbortSignal, isolation?: CheckLaunchIsolation): Promise<BuildCheckEvidence> {
   let scan: StaticEvidence | undefined; let launch: LaunchEvidence | undefined;
   let prepared = false;
   try {
@@ -222,7 +229,7 @@ export async function runBuildCheck(plan: CheckPlan, services: CheckServices, si
     const stable = (value: unknown) => JSON.stringify(value, (_key, part) => part && typeof part === 'object' && !Array.isArray(part) ? Object.fromEntries(Object.entries(part).sort(([a], [b]) => a.localeCompare(b))) : part);
     if (stable(actual) !== stable(manifest)) throw new Error('the supplied manifest differs from the checked tree');
     prepared = true;
-    launch = await launchBuild(plan, manifest, services, signal);
+    launch = await launchBuild(plan, manifest, services, signal, isolation);
   } catch { if (!prepared) scan = undefined; /* Invalid input or a changed tree cannot produce an entry or launch pass. */ }
   if (signal?.aborted && launch) launch.failure = 'the build check was cancelled';
   const gated = { sign: services.sign ? async (input: Parameters<NonNullable<CheckServices['sign']>>[0]) => {

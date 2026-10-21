@@ -24,6 +24,8 @@ The files page Section 4; MR3.3, MR3.4; J11. The authoritative repository record
 
 ## Technology
 
+The optional [current macOS executor](docs/macos-check-executor.md) supplies actual kernel confinement for a thin arm64 program and SDK-only networking. Its bundled module is hash-pinned by the trusted Journeys dispatcher; missing isolation, mismatched CPU/claim target and unsupported asks refuse before uploaded code launches. A fresh scratch environment and explicit other-process information denial protect the parent credentials. Actual kernel probes cover files, symlinks, writes, network/metadata and process boundaries. The window-capable sample packages the same core with AppKit in one executable, with no UI during headless checks. Complete checked/window/update proof and normal installed App trust remain separate acceptance gates.
+
 TypeScript (the first binding); others as games need them. The reasons are in [`docs/decisions.md`](./docs/decisions.md).
 
 ## Status

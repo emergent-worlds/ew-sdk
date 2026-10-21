@@ -2,6 +2,8 @@
 
 `@emergent-worlds/sdk/check` supplies `runBuildCheck(plan, services, signal?)` for one declared target. It is Node 24 tooling. The ordinary SDK entry does not load the check runner, socket server, or process tools. The check subpath bundles its local WebSocket dependency; it adds no runtime dependency to the ordinary SDK binding.
 
+The trusted deployment may additionally supply the fourth `CheckLaunchIsolation` argument. The [current macOS executor](macos-check-executor.md) is a concrete kernel boundary built separately as a hash-pinned Journeys module. The ordinary three-argument tooling remains a local lifecycle fixture; a declared executor or a local child is not evidence of isolation.
+
 This implements the local portion of E17, MR3.4, and the six checks in S8. The platform still owns the queue, check account, isolated job or native check runner, immutable input tree, model catalogue, model route, signing service, and publication gate. The runner has no cloud credentials or signing key. It does not dispatch jobs or sign by itself.
 
 ## Inputs and outputs
@@ -54,7 +56,7 @@ The frozen Bun artifact production check ran60,002ms through the actual claimed 
 
 ## Exact technical occurrence review
 
-`check/reviewed-metadata.ts` contains trusted, finite interpretations for one exact macOS headless Kestrel artifact. A record binds the whole verified file hash/size, target/path, exact byte offset/length/raw hash and retained context/source-bundle identity. Two occurrences are reflective/validation-only loopback constants; the native transport separately permits only the original validated launcher address. Two are minified date-parser property accesses, not hostname strings. The scanner retains all four occurrences and their `reviewed-non-network` interpretation in evidence while excluding those exact occurrences from unresolved hosts. No package receipt supplies this authority.
+`check/reviewed-metadata.ts` contains trusted, finite interpretations for the original exact macOS headless Kestrel artifact and two separately bound window-capable artifacts. A record binds the whole verified file hash/size, target/path, exact byte offset/length/raw hash and retained context/source-bundle identity. Two occurrences per artifact are reflective/validation-only loopback constants; the native transport separately permits only the original validated launcher address. Two are minified date-parser property accesses, not hostname strings. The scanner retains all four occurrences and their `reviewed-non-network` interpretation in evidence while excluding those exact occurrences from unresolved hosts. No package receipt supplies this authority.
 
 The same bytes at another offset/path, a changed artifact, an unsupported artifact format or another version receive no inherited disposition. The focused native test proves the exact raw section/context and whole artifact identity, then alters one byte and appends a duplicate endpoint; both return unresolved hosts with no disposition. Every other potential endpoint and the existing runtime, provider, frame, save, sampling and signing gates remain unchanged. The finite record intentionally stops applying when packaging or its dependencies change. A new target requires new exact proof and a complete check.
 

@@ -1,6 +1,9 @@
 import Foundation
 import JavaScriptCore
 import MachO
+#if EW_NATIVE_WINDOW
+import AppKit
+#endif
 
 // The system frameworks are deployment dependencies. No application asset is loaded from disk.
 let frameLimit = 4 * 1024 * 1024
@@ -45,6 +48,12 @@ let clearTimer: @convention(block) (Int) -> Void = { timers.removeValue(forKey: 
 install("__utf8", encoder); install("__btoa", b64encode); install("__atob", b64decode)
 install("__timer", timer); install("__clearTimer", clearTimer)
 install("__launch", ["url": launch, "token": token, "port": String(port)])
+#if EW_NATIVE_WINDOW
+let windowUI = YardWindow()
+let showWindow: @convention(block) (JSValue) -> Void = { callback in windowUI.show(callback) }
+let renderWindow: @convention(block) (String) -> Void = { text in windowUI.render(text) }
+install("__window", showWindow); install("__render", renderWindow)
+#endif
 let fail: @convention(block) () -> Void = { fatal("The embedded application failed.") }
 install("__fatal", fail)
 
@@ -113,4 +122,9 @@ let send: @convention(block) (String) -> Bool = { channel.send($0) }
 let close: @convention(block) () -> Void = { channel.stop("close") }
 install("__open", open); install("__send", send); install("__close", close)
 context.evaluateScript(script)
+#if EW_NATIVE_WINDOW
+if environment["EW_SDK_CHECK"] == "1" { RunLoop.main.run() }
+else { NSApplication.shared.run() }
+#else
 RunLoop.main.run()
+#endif
