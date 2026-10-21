@@ -15,6 +15,7 @@ export function macosCheckProfile(input: {root: string; entry: string; scratch: 
 (deny default)
 (deny process-info* nvram* iokit-get-properties)
 (allow process-info* (target self))
+(allow sysctl-read (sysctl-name "hw.pagesize_compat"))
 (allow process-exec (literal ${quote(input.entry)}))
 (allow file-read* (subpath "/System/Library") (subpath "/usr/lib") (subpath "/usr/share/icu") (subpath ${quote(input.root)}) (subpath ${quote(input.scratch)}) (literal "/") (literal "/dev/null") (literal "/dev/urandom") (literal "/dev/random"))
 (allow file-write* (subpath ${quote(input.scratch)}) (literal "/dev/null"))
