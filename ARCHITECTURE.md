@@ -2,6 +2,8 @@
 
 The SDK through which an installed game reaches the App beside it.
 
+The accepted97257c0 current-Mac arm64 programs now complete the ordinary configured beta composition: fresh Google-authenticated six-row checks and official GSM signatures, normal App permission/install/Play/native channel, account save and App quit/reopen, then a separately checked changed-program update preserving that state. The existing Build V2 cycle's `artefact/installed-beta/` retains actual service and native evidence for sole final review. [The current-Mac executor contract](docs/macos-check-executor.md) distinguishes this supervised host from other targets, provider/full journey gates, future macOS support and an unattended fleet.
+
 This repository is part of build V2 of Emergent Worlds, written new from the design record (the operator's direction of 2026-10-12). It is public, under the Apache License 2.0. The plan that placed it is the cycle's [plan.md](https://github.com/emergent-worlds/command-center/blob/main/operations/founder-product-development/cycles/2026-10-13-build-v2/plan.md), approved on 2026-10-14.
 
 ## What it holds
