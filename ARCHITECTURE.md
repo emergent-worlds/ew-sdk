@@ -22,6 +22,8 @@ The files page Section 4; MR3.3, MR3.4; J11. The authoritative repository record
 
 `src/` holds the installed-game binding. `sample/src/core.ts` holds the shared Kestrel Yards state and handlers, with browser worker and headless entries beside it. `sample/src-tauri/` holds the native window source. `scripts/` builds the sample and checks real child processes; `check/frame-host.ts` is the disposable browser host fixture. The sample's [README](sample/README.md) describes these paths and verification limits.
 
+The AppKit window reads the resolved account display from the installed SDK's core grant and follows live display messages. It applies the settings before revealing the window. Account contrast sets the window, text and control colors independently of the Mac setting. Text size scales game text and controls, and reduced motion suppresses window transitions. The browser uses its page grant directly. The Tauri sample passes only validated display through its existing local worker port. Check mode remains headless, and English remains the launch language. The corrected window still requires an official signed update and ordinary installed Play.
+
 `check/runner.ts`, `scan.ts`, and `sockets.ts` implement the optional Node build-check tool exported as `sdk/check`. It produces the six E17 evidence rows for one target, with platform service callbacks. Its [contract and limits](docs/checks.md) distinguish a local lifecycle fixture from isolated target checks and canonical signing integration.
 
 ## Technology

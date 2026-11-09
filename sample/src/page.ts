@@ -1,10 +1,11 @@
-import { callPort, portTransport } from '@emergent-worlds/host';
+import { callPort, Display, portTransport } from '@emergent-worlds/host';
 import { connectPage, framePorts, handPort, startCore } from '@emergent-worlds/host/loader';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { YardView } from './core.js';
 
 const root = document.querySelector<HTMLElement>('main')!;
+root.hidden = true;
 const output = document.createElement('div');
 const controls = document.createElement('div');
 const status = document.createElement('p'); status.setAttribute('role', 'status');
@@ -12,6 +13,18 @@ root.append(output, controls, status);
 const worker = startCore(new URL('worker.js', location.href).href);
 const channel = new MessageChannel();
 const rpc = callPort(portTransport(channel.port1));
+const applyDisplay = (value: unknown) => {
+  const parsed = Display.safeParse(value);
+  if (!parsed.success) return;
+  const { theme, textSize, contrast, motion, language } = parsed.data;
+  const html = document.documentElement;
+  html.dataset.theme = theme;
+  html.dataset.textSize = textSize;
+  html.dataset.contrast = contrast;
+  html.dataset.motion = motion;
+  html.lang = /^en(?:-[a-z]{2})?$/i.test(language) ? language : 'en';
+  root.hidden = false;
+};
 const draw = (view: YardView) => {
   output.replaceChildren();
   const heading = document.createElement('h1'); heading.textContent = 'Kestrel Yards';
@@ -39,6 +52,7 @@ advance.onclick = () => { void act('yard.advance'); }; controls.append(advance);
 rpc.on('yard.view', view => draw(view as YardView));
 try {
   if ('__TAURI_INTERNALS__' in window) {
+    rpc.on('yard.display', applyDisplay);
     const sdk = await invoke<{ url: string; token: string }>('sdk_connection');
     worker.postMessage({ kestrel: 1, sdk }, [channel.port2]);
     await getCurrentWindow().onCloseRequested(async event => {
@@ -49,11 +63,14 @@ try {
   } else {
     const ports = await framePorts();
     const page = await connectPage(portTransport(ports.page));
-    const display = (theme: string) => { document.documentElement.dataset.theme = theme; };
-    display(page.grant.display.theme); page.on('display', message => display(message.display.theme));
+    applyDisplay(page.grant.display);
+    page.on('display', message => applyDisplay(message.display));
     handPort(worker, ports.core);
     worker.postMessage({ kestrel: 1 }, [channel.port2]);
   }
   await act('yard.view');
-} catch { status.textContent = 'Kestrel Yards needs its host connection to open.'; }
+} catch {
+  status.textContent = 'Kestrel Yards needs its host connection to open.';
+  root.hidden = false;
+}
 window.addEventListener('pagehide', () => { rpc.close(); worker.terminate(); });

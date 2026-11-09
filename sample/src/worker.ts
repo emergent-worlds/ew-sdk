@@ -1,4 +1,4 @@
-import { portTransport, servePort } from '@emergent-worlds/host';
+import { portTransport, servePort, type PortServer } from '@emergent-worlds/host';
 import { connectCore, workerPort } from '@emergent-worlds/host/loader';
 import { connect } from '../../src/index.js';
 import { createYard } from './core.js';
@@ -17,6 +17,14 @@ void folder.then(async ({ port, sdk }) => {
   const portFromParent = sdk ? undefined : await parent;
   if (!sdk && !portFromParent) throw new Error('the yard worker received no host port');
   const host = sdk ? await connect(sdk) : await connectCore(portTransport(portFromParent!));
+  let display = host.grant.display;
+  let page: PortServer | undefined;
+  if (sdk) {
+    host.on('display', message => {
+      display = message.display;
+      page?.notify('yard.display', display);
+    });
+  }
   const yard = await createYard(host);
   const rpc = servePort(portTransport(port), {
     'yard.view': () => yard.view(),
@@ -24,5 +32,7 @@ void folder.then(async ({ port, sdk }) => {
     'yard.advance': () => yard.advance(),
     'yard.save': () => yard.save('leaving'),
   });
+  page = rpc;
+  if (sdk) rpc.notify('yard.display', display);
   yard.subscribe(view => rpc.notify('yard.view', view));
 });
