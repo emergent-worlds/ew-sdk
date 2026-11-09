@@ -367,6 +367,67 @@ export const reviewedMetadata = [
       "contextSha256": "7631f80ce7787a1d7cd382204eef2f40e03c24131d12c9360b1801a9aeefd7cd"
     }
   ]
+},
+{
+  "artifactSha256": "772425b6046a29e4a6cb3b3e282f708841ef3fe4fb456f06820c9084c82d3a33",
+  "artifactSize": 517056,
+  "target": "macos-arm64",
+  "path": "build/macos-arm64/KestrelYards.app/Contents/MacOS/KestrelYards",
+  "embedded": {
+    "offset": 78900,
+    "size": 284027,
+    "sha256": "9655237464f000965a12b8a349b6876acfddd2e0c375c62a61550d6d4dba5da0"
+  },
+  "occurrences": [
+    {
+      "offset": 79897,
+      "rawLength": 9,
+      "rawSha256": "12ca17b49af2289436f303e0166030a21e525d266e209267433801a8fd4071a0",
+      "host": "127.0.0.1",
+      "id": "kestrel-window-display-1.0.2-macos13-arm64-79897",
+      "revision": "ew.technical-occurrence.v1",
+      "interpretation": "URL shim reflective hostname. Constructor accepts only the exact native-captured launcher URL; this field validates that value and does not form the URL passed to the socket.",
+      "contextOffset": 79822,
+      "context": ";\n    Object.assign(this, {href: __launch.url, protocol: 'ws:', hostname: '127.0.0.1', port: __launch.port, username: '', password: '', search: '', hash: ''});",
+      "contextSha256": "071731a72e0f4f4682e9871f606092a14c3af67566e77ffc2288dbd662e4c046"
+    },
+    {
+      "offset": 126317,
+      "rawLength": 7,
+      "rawSha256": "2e7c91921cacfcad057970024e9b3d20d104e60427eede3dda5d84bbaf27e1d2",
+      "host": "t.local",
+      "id": "kestrel-window-display-1.0.2-macos13-arm64-126317",
+      "revision": "ew.technical-occurrence.v1",
+      "interpretation": "Minified Zod date parser reads the local boolean property of its options object to construct a date-validation regular expression. This identifier is not a hostname literal or connection selector.",
+      "contextOffset": 126242,
+      "context": "Exp(`^${Aa(t)}$`)}function Ca(t){let e=`${Ia}T${Aa(t)}`,r=[];return r.push(t.local?\"Z?\":\"Z\"),t.offset&&r.push(\"([+-]\\\\d{2}:?\\\\d{2})\"),e=`${e}(${r.join(\"|\")})",
+      "contextSha256": "1e396bd604d07901ae0b1adb9fe59a966a825c4c9db5f9817763780d23b1662d"
+    },
+    {
+      "offset": 181802,
+      "rawLength": 9,
+      "rawSha256": "12ca17b49af2289436f303e0166030a21e525d266e209267433801a8fd4071a0",
+      "host": "127.0.0.1",
+      "id": "kestrel-window-display-1.0.2-macos13-arm64-181802",
+      "revision": "ew.technical-occurrence.v1",
+      "interpretation": "SDK comparison rejects a parsed address whose hostname differs from loopback. The socket receives the separately parsed original address.href, never this literal.",
+      "contextOffset": 181727,
+      "context": "rror(\"invalid loopback address\"))}return s.protocol!==\"ws:\"||s.hostname!==\"127.0.0.1\"||!s.port||s.username||s.password||s.search||s.hash?Promise.reject(new Err",
+      "contextSha256": "380f6f7576a4b22f61fb461b4a1e77940bb6d9194a0921a229873ac5fcaffc2b"
+    },
+    {
+      "offset": 303571,
+      "rawLength": 7,
+      "rawSha256": "2e7c91921cacfcad057970024e9b3d20d104e60427eede3dda5d84bbaf27e1d2",
+      "host": "t.local",
+      "id": "kestrel-window-display-1.0.2-macos13-arm64-303571",
+      "revision": "ew.technical-occurrence.v1",
+      "interpretation": "Minified Zod date parser reads the local boolean property of its options object to construct a date-validation regular expression. This identifier is not a hostname literal or connection selector.",
+      "contextOffset": 303496,
+      "context": "Exp(`^${Hl(t)}$`)}function Xl(t){let e=`${Wl}T${Hl(t)}`,r=[];return r.push(t.local?\"Z?\":\"Z\"),t.offset&&r.push(\"([+-]\\\\d{2}:?\\\\d{2})\"),e=`${e}(${r.join(\"|\")})",
+      "contextSha256": "558a018940045d049108b8bf8b386f0cdf6f45730ef805758d3f0448a5a0b4e2"
+    }
+  ]
 }
 ] as const;
 
