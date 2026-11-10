@@ -1,5 +1,13 @@
 # Decisions: ew-sdk
 
+## 2026-11-10: Keep installed player projection on the existing launcher socket
+
+**Decision.** Offer a separate SDK entry point for games that implement the portable player projection. Reuse the current launcher URL, one-use credential and Host transport. Ordinary core frames keep their existing shape.
+
+**Alternatives.** A second socket would require a new authentication and lifecycle boundary. Implicitly enabling projection in every game would change the existing SDK contract.
+
+**Rationale.** The game explicitly owns its per-player projection while the server keeps admission and the private core lease. Closing the projection leaves the core available to save.
+
 ## 2026-10-21: Confine current macOS checks and bind native window bytes
 
 **Decision.** Supply a bundled current-host kernel executor with exact claim/CPU matching, read-only immutable files, private scratch, a sterile child environment, SDK-port-only TCP and explicit other-process information denial. Package a small AppKit presentation around the existing SDK/JSC/Kestrel core, keeping headless checks UI-free and requiring new exact artifact checks for each program version.

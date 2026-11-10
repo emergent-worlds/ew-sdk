@@ -41,6 +41,8 @@ The optional check runner uses ew-host's canonical installed build encoding. Its
 
 The E17 static scan derives all executable containment prefixes from the immutable manifest, validates portable non-overlapping target directories, and permits executable sibling targets. Active-target hosts and network observations remain separate, archives are refused across the complete tree, and signing includes only the selected target.
 
+Installed games can explicitly open a player projection alongside their core through `connectWithRemotePlayerProjection`. Both lanes use the same authenticated launcher socket. The game serves its public per-player view through the Host projection contract, and ordinary saves and other private core work stay on the core lane. The existing `connect` function keeps the original core-only connection.
+
 ## Actual server-session readiness
 
 The shared Kestrel core emits progress(1) only after saved-state loading and all core handlers are ready. Earlier local smokes waited only for status, which did not expose the missing progress signal. The real HeadlessSession remained starting and could not advance or perform its interval save. The smoke now waits for completed progress, and check:server-session uses the actual sibling server session against real Node, Bun and compiled sample children. It proves running state, real engine carry, interval save, retained failed final save, saved end, child reaping and exact-state resume. The interpreted fixtures observe natural process exit; compiled mode uses the actual server child adapter after its correlated saved quit and fenced end.

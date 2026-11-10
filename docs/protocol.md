@@ -13,3 +13,9 @@ The game owns serialization of its state. Register `on('save.request', ...)` and
 The Kestrel Yards sample uses these handlers with the real Emergence Engine, including complete saves and saved fractional away time. Its [README](../sample/README.md) explains the shared browser, native-window, and server entries and the local lifecycle checks. Native launcher admission, the isolated build check, signed builds, publication, and cross-platform journeys remain open in the Build V2 cycle. The package has not been published to npm.
 
 For an installed server target, the SDK connection stays alive for the launcher to complete the fenced server end after a successful quit reply. The launcher then owns direct child termination and reaping. A failed save or quit must leave the process available for retry. This is the same saved-state implementation used in ordinary and check mode; the game receives no machine credential.
+
+## Optional installed player projection
+
+For a launcher that supports shared play with installed games, call `connectWithRemotePlayerProjection(options)`. It uses the same URL, one-use token and abort signal as `connect()`, and returns `{ core, projection }` after the ordinary core grant. Keep the existing state, save and quit handlers on `core`. Serve the game’s per-player projection with `serveRemotePlayerProjection(projection, descriptor, handlers)`, exported by the SDK.
+
+The first frame authenticates the single socket and core frames keep their existing format. The projection frames use the separate `ewPlayerProjection` envelope. The server supplies each admitted sender and controls guest and terminal authority. Closing the projection leaves the core available for a final save. Closing the core or cancelling the launch closes the whole connection. Use `connect()` for the existing core-only protocol.

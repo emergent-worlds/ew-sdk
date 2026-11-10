@@ -1,20 +1,23 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { once } from 'node:events';
-import { HostBridge, Manifest, type HostHandlers, type Transport } from '@emergent-worlds/host';
-import { connect } from '../src/index.js';
+import { HostBridge, Manifest, callPort, splitInstalledPlayerTransport, type HostHandlers, type Transport } from '@emergent-worlds/host';
+import { connect, connectWithRemotePlayerProjection, serveRemotePlayerProjection, type RemotePlayerProjectionDescriptor } from '../src/index.js';
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { vi.unstubAllEnvs(); for (const cleanup of cleanups.splice(0)) await cleanup(); });
 const asks = Manifest.parse({ name: 'Kestrel Yards', kind: 'reality', version: '1.0.0', owner: '@mercerpress', entry: { web: 'index.html' }, asks: { surface: 'window', saves: true } }).asks!;
 
-async function launcher(handlers: HostHandlers = {}, family: 'core' | 'combined' = 'core') {
+async function launcher(handlers: HostHandlers = {}, family: 'core' | 'combined' = 'core', portable = false) {
   const server = new WebSocketServer({ host: '127.0.0.1', port: 0 });
   await once(server, 'listening');
   const frames: unknown[] = [];
+  let connections = 0;
   let bridge: HostBridge;
   let peer: WebSocket;
+  let projection: ReturnType<typeof callPort> | undefined;
   server.on('connection', socket => {
+    connections++;
     peer = socket;
     socket.on('message', data => frames.push(JSON.parse(data.toString())));
     socket.once('message', data => {
@@ -33,7 +36,9 @@ async function launcher(handlers: HostHandlers = {}, family: 'core' | 'combined'
         },
         close: () => socket.close(),
       };
-      bridge = new HostBridge(transport, asks, { ...handlers, ready: () => bridge.send({ type: 'grant', asks, session: 'test', headless: false, journeys: true, version: { id: 'v1', seq: 1 }, display: { theme: 'light', textSize: 'default', contrast: 'default', motion: 'full', language: 'en' } }) }, 1000, family);
+      const channels = portable ? splitInstalledPlayerTransport(transport) : undefined;
+      if (channels) projection = callPort(channels.projection, 1000);
+      bridge = new HostBridge(channels?.core ?? transport, asks, { ...handlers, ready: () => bridge.send({ type: 'grant', asks, session: 'test', headless: false, journeys: true, version: { id: 'v1', seq: 1 }, display: { theme: 'light', textSize: 'default', contrast: 'default', motion: 'full', language: 'en' } }) }, 1000, family);
     });
   });
   cleanups.push(async () => {
@@ -43,7 +48,8 @@ async function launcher(handlers: HostHandlers = {}, family: 'core' | 'combined'
   });
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('missing local address');
-  return { url: `ws://127.0.0.1:${address.port}/`, token: 'test-launch-credential', frames, bridge: () => bridge, drop: () => peer.terminate() };
+  return { url: `ws://127.0.0.1:${address.port}/`, token: 'test-launch-credential', frames,
+    bridge: () => bridge, drop: () => peer.terminate(), projection: () => projection!, connections: () => connections };
 }
 
 describe('installed-game SDK over a real loopback socket', () => {
@@ -68,6 +74,39 @@ describe('installed-game SDK over a real loopback socket', () => {
     const game = await connect();
     expect(game.grant.endpoint).toBe('core');
     game.close();
+  });
+  it('opts into player projection on one authenticated socket while keeping ordinary core saves', async () => {
+    const saved = vi.fn(async () => ({ version: 'v2', seq: 2, at: '2026-10-15T00:00:00Z' }));
+    const launcherSocket = await launcher({ save: saved }, 'core', true);
+    vi.stubEnv('EW_SDK_URL', launcherSocket.url);
+    vi.stubEnv('EW_SDK_TOKEN', launcherSocket.token);
+    const game = await connectWithRemotePlayerProjection();
+    const descriptor: RemotePlayerProjectionDescriptor = { protocol: 'ew.remote-player.v1', calls: ['yards.view'], inputs: [] };
+    const projection = serveRemotePlayerProjection(game.projection, descriptor, {
+      admit: () => {},
+      snapshot: ({ sender }) => [{ ew: 1, notice: 'yards.view', data: { sender } }],
+      call: ({ sender }) => ({ sender }),
+      input: () => {},
+    });
+    try {
+      expect(game.core.grant.endpoint).toBe('core');
+      expect(launcherSocket.connections()).toBe(1);
+      expect(launcherSocket.frames.slice(0, 2)).toEqual([
+        { token: launcherSocket.token },
+        { ew: 1, type: 'ready', protocol: 1 },
+      ]);
+      await expect(launcherSocket.projection().call('ew.remote.describe')).resolves.toEqual(descriptor);
+      await expect(launcherSocket.projection().call('ew.remote.snapshot', { sender: 'private-slot-sender' }))
+        .resolves.toEqual([{ ew: 1, notice: 'yards.view', data: { sender: 'private-slot-sender' } }]);
+      expect(launcherSocket.frames).toContainEqual(expect.objectContaining({ ewPlayerProjection: 1 }));
+      projection.close();
+      await expect(game.core.save('own', [])).resolves.toMatchObject({ version: 'v2' });
+      expect(saved).toHaveBeenCalledTimes(1);
+      expect(launcherSocket.connections()).toBe(1);
+    } finally {
+      projection.close();
+      game.core.close();
+    }
   });
   it('rejects a wrong credential without including it in the error', async () => {
     const server = await launcher();
