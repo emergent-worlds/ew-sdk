@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@emergent-worlds/host':
-        specifier: github:emergent-worlds/ew-host#5bedd9c9e41c7ee55fb1623f428bbdd71ad5b156
-        version: https://codeload.github.com/emergent-worlds/ew-host/tar.gz/5bedd9c9e41c7ee55fb1623f428bbdd71ad5b156
+        specifier: github:emergent-worlds/ew-host#7683f92f8f8dffec5edd2f9b1e21a1aeaf1ad42c
+        version: https://codeload.github.com/emergent-worlds/ew-host/tar.gz/7683f92f8f8dffec5edd2f9b1e21a1aeaf1ad42c
     devDependencies:
       '@emergentworlds/emergence-engine':
         specifier: github:emergent-worlds/emergence-engine#95a4048
@@ -39,8 +39,8 @@ importers:
 
 packages:
 
-  '@emergent-worlds/host@https://codeload.github.com/emergent-worlds/ew-host/tar.gz/5bedd9c9e41c7ee55fb1623f428bbdd71ad5b156':
-    resolution: {tarball: https://codeload.github.com/emergent-worlds/ew-host/tar.gz/5bedd9c9e41c7ee55fb1623f428bbdd71ad5b156}
+  '@emergent-worlds/host@https://codeload.github.com/emergent-worlds/ew-host/tar.gz/7683f92f8f8dffec5edd2f9b1e21a1aeaf1ad42c':
+    resolution: {tarball: https://codeload.github.com/emergent-worlds/ew-host/tar.gz/7683f92f8f8dffec5edd2f9b1e21a1aeaf1ad42c}
     version: 0.3.15
     engines: {node: '>=24'}
 
@@ -796,7 +796,7 @@ packages:
 
 snapshots:
 
-  '@emergent-worlds/host@https://codeload.github.com/emergent-worlds/ew-host/tar.gz/5bedd9c9e41c7ee55fb1623f428bbdd71ad5b156':
+  '@emergent-worlds/host@https://codeload.github.com/emergent-worlds/ew-host/tar.gz/7683f92f8f8dffec5edd2f9b1e21a1aeaf1ad42c':
     dependencies:
       semver: 7.8.5
       zod: 3.25.76
