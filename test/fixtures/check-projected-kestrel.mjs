@@ -82,7 +82,9 @@ const platform = {
     for (const file of original) assert.equal(hash(next.get(file.path)), file.sha256);
     assert.ok(next.has('state/engine.json'));
     current = next;
-    saves.push(reason);
+    const digest = hash(JSON.stringify(tree(next).sort((left, right) => left.path < right.path ? -1 : 1)
+      .map(({ path, sha256, size }) => [path, sha256, size])));
+    saves.push({ reason, digest });
     return { version: `fixture-save-${saves.length}`, seq: saves.length + 1, at: '2026-11-10T00:00:00Z' };
   },
   async end(value, reason) { exactFence(value); assert.equal(reason, 'leaving'); ended = true; },
@@ -142,11 +144,13 @@ try {
   await both('timber', 12);
   await running.session.stop('leaving');
   assert.ok(ended);
-  assert.deepEqual(saves, ['before-change', 'own', 'own', 'leaving']);
+  const reasons = saves.map(save => save.reason);
+  assert.deepEqual(reasons, ['before-change', 'own', 'own', 'leaving', 'leaving']);
+  assert.equal(saves.at(-1).digest, saves.at(-2).digest);
   await running.dispose(); running = undefined;
   assert.deepEqual(await readdir(directory), []);
   console.log(JSON.stringify({ passed: true, native: nativeBuild.artifact, engine: expectedEngine, playerSnapshots: 2,
-    sharedAssignment: 'rigging', terminalTimber: [12, 20, 12], projectionRefusedPrivateMethods: true, saves,
+    sharedAssignment: 'rigging', terminalTimber: [12, 20, 12], projectionRefusedPrivateMethods: true, saves: reasons, sameFinalTree: true,
     productionTrust: false, platformFixture: true, browserRendered: false }));
 } finally {
   stop.abort();
