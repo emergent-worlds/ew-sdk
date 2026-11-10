@@ -47,6 +47,28 @@ describe('E17 evidence does not invent passes', () => {
     expect(input.prerequisiteRows[2]!.evidence).not.toBe(passed[2]!.evidence);
     expect(passed[5]!.evidence).toMatchObject({ payload: input.payload, fileListSha256: input.fileListSha256 });
   });
+  it('requires exact projection evidence before signing an opted-in server executable', async () => {
+    const web = { path: 'web/index.html', size: 2, sha256: 'b'.repeat(64), executable: false };
+    const selected = { ...plan, files: [...plan.files, web], manifest: { ...manifest,
+      entry: { ...manifest.entry, web: web.path, playerProjection: 'ew.remote-player.v1' }, asks: { saves: true, players: 2 } } };
+    const proof = { protocol: 'ew.remote-player.v1' as const, executableSha256: plan.files[0]!.sha256,
+      descriptorSha256: 'c'.repeat(64), admittedPlayers: 2 as const, snapshots: 2 as const,
+      nonStateTreeSha256: createHash('sha256').update(JSON.stringify(selected.files.map(({ path, sha256, size }) => [path, sha256, size]))).digest('hex') };
+    const sign = vi.fn<NonNullable<CheckServices['sign']>>(async input => ({ signature: 'synthetic-service-acknowledgment', fileListSha256: input.fileListSha256 }));
+    for (const playerProjection of [undefined, { ...proof, executableSha256: 'd'.repeat(64) },
+      { ...proof, nonStateTreeSha256: 'e'.repeat(64) }, { ...proof, descriptorSha256: '' }, { ...proof, sender: 'private' }]) {
+      const rows = await checkRows(selected, scan, { ...launch, playerProjection }, { sign });
+      expect(rows[1]!.result).toBe('fail');
+      expect(rows[1]!.evidence).not.toHaveProperty('playerProjection');
+      expect(rows[5]!.result).toBe('pending');
+    }
+    expect(sign).not.toHaveBeenCalled();
+    const rows = await checkRows(selected, scan, { ...launch, playerProjection: proof }, { sign });
+    expect(rows[1]!.result).toBe('pass');
+    expect(sign.mock.calls[0]?.[0].prerequisiteRows[1]?.evidence.playerProjection).toEqual(proof);
+    expect((await checkRows(plan, scan, { ...launch, playerProjection: proof }, {}))[1]!.evidence)
+      .toEqual({ admitted: true, runMs: 60000, requiredMs: 60000, failure: null });
+  });
   it('refuses a signing acknowledgment for different canonical bytes', async () => {
     const sign = vi.fn<NonNullable<CheckServices['sign']>>(async () => ({ signature: 'synthetic-service-acknowledgment', fileListSha256: 'b'.repeat(64) }));
     const rows = await checkRows(plan, scan, launch, { sign }); expect(sign).toHaveBeenCalledOnce(); expect(rows[5]!.result).toBe('fail');

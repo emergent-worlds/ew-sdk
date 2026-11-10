@@ -19,10 +19,14 @@ const players = serveRemotePlayerProjection(projection, {
   input: ({ sender, data }) => { if (data === 'take') take(sender); },
 });
 core.handle('pause', () => ({}));
-core.handle('quit', () => ({}));
-core.on('save.request', ({ reason }) => {
+function save(reason) {
   const bytes = Buffer.from(JSON.stringify(Object.fromEntries(counts)));
   const sha256 = createHash('sha256').update(bytes).digest('hex');
-  void core.save(reason, [{ path: 'state/counter.json', sha256, data: bytes.toString('base64') }]).catch(() => {});
+  return core.save(reason, [{ path: 'state/counter.json', sha256, data: bytes.toString('base64') }]);
+}
+core.handle('quit', async ({ reason }) => {
+  await save(reason === 'handoff' ? 'handoff' : 'leaving');
+  return {};
 });
+core.on('save.request', ({ reason }) => { void save(reason).catch(() => {}); });
 core.progress(1);

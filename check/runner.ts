@@ -2,7 +2,11 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
-import { HostBridge, Manifest, BuildTarget, canonicalBuildList, parseBuildList, type BuildList, type BuildFile, type HostHandlers, type Transport } from '@emergent-worlds/host';
+import {
+  HostBridge, Manifest, BuildTarget, canonicalBuildList, parseBuildList, callPort, splitInstalledPlayerTransport,
+  REMOTE_PLAYER_PROJECTION_METHODS, RemotePlayerProjectionDescriptor, RemotePlayerProjectionSnapshot,
+  type BuildList, type BuildFile, type HostHandlers, type Transport,
+} from '@emergent-worlds/host';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { checkedPath, folderPath, hostAllowed, scanTree, under, validateFiles, type CheckFile, type StaticEvidence } from './scan.js';
 import { resolveNetworkAsk, sampleSockets } from './sockets.js';
@@ -51,11 +55,34 @@ export interface CheckLaunchIsolation {
   launch(input: { entry: string; root: string; sdkUrl: string; sdkToken: string; signal?: AbortSignal }): Promise<{ child: ChildProcess; dispose(): Promise<void> }>;
 }
 export interface BuildCheckEvidence { folder: string; version: string; target: string; rows: CheckRow[]; passed: boolean }
+interface PlayerProjectionEvidence {
+  protocol: 'ew.remote-player.v1'; executableSha256: string; descriptorSha256: string; nonStateTreeSha256: string;
+  admittedPlayers: 2; snapshots: 2;
+}
 interface LaunchEvidence {
   admitted: boolean; runMs: number; requestedSave: boolean; savedVersions: string[]; saveReasons: string[];
   quitSaved: boolean; modelJobs: string[]; modelFailures: number; refused: number;
   endpoints: string[]; observedEndpoints: string[]; sdkSamples: number; samples: number; sampleErrors: number; missedSamples: number;
   sampler: string; failure?: string;
+  playerProjection?: PlayerProjectionEvidence;
+}
+
+const requiresPlayerProjection = (target: string, manifest: Manifest) =>
+  target === 'server' && manifest.entry?.playerProjection === 'ew.remote-player.v1';
+const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+function nonStateTreeSha256(plan: CheckPlan): string {
+  return digest(plan.files.filter(file => !file.path.startsWith('state/'))
+    .map(({ path, sha256, size }) => [path, sha256, size] as const)
+    .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+}
+function matchedPlayerProjection(plan: CheckPlan, evidence: PlayerProjectionEvidence | undefined): PlayerProjectionEvidence | null {
+  const entry = plan.files.find(file => file.path === plan.entryPath);
+  const sha256 = /^[a-f0-9]{64}$/;
+  return evidence?.protocol === 'ew.remote-player.v1' && Object.keys(evidence).length === 6
+    && sha256.test(evidence.executableSha256) && evidence.executableSha256 === entry?.sha256
+    && typeof evidence.descriptorSha256 === 'string' && sha256.test(evidence.descriptorSha256)
+    && evidence.nonStateTreeSha256 === nonStateTreeSha256(plan)
+    && evidence.admittedPlayers === 2 && evidence.snapshots === 2 ? evidence : null;
 }
 
 /** Pure aggregation keeps missing observations and missing signing evidence visibly pending. */
@@ -65,11 +92,14 @@ export async function checkRows(plan: CheckPlan, scan: StaticEvidence | undefine
   const entry = Boolean(prefix && under(plan.entryPath, prefix) && plan.files.some(file => file.path === plan.entryPath && file.executable));
   const row = (line: number, result: CheckResult, evidence: Record<string, unknown>): CheckRow => ({ line, name: CHECK_LINES[line - 1]!, result, evidence });
   const fullRun = Boolean(launch?.admitted && launch.runMs >= CHECK_DURATION_MS && !launch.failure);
+  const needsProjection = manifest.success && requiresPlayerProjection(plan.target, manifest.data);
+  const projection = needsProjection ? matchedPlayerProjection(plan, launch?.playerProjection) : null;
+  const launchFailure = launch?.failure ?? (needsProjection && !projection ? 'the installed player projection did not complete its required probe' : null);
   const network = manifest.success ? manifest.data.asks?.network ?? [] : [];
   const staticDenied = scan?.hosts.filter(host => !hostAllowed(host, network)) ?? [];
   const rows = [
     row(1, entry && scan ? 'pass' : 'fail', { entry: plan.entryPath, prefix: prefix ?? null, verifiedFiles: scan?.verifiedFiles ?? 0 }),
-    row(2, fullRun ? 'pass' : 'fail', { admitted: launch?.admitted ?? false, runMs: launch?.runMs ?? 0, requiredMs: CHECK_DURATION_MS, failure: launch?.failure ?? null }),
+    row(2, fullRun && (!needsProjection || projection !== null) ? 'pass' : 'fail', { admitted: launch?.admitted ?? false, runMs: launch?.runMs ?? 0, requiredMs: CHECK_DURATION_MS, failure: launchFailure, ...(projection ? { playerProjection: projection } : {}) }),
     row(3, fullRun && launch?.requestedSave && launch.savedVersions.length > 0 && launch.quitSaved ? 'pass' : 'fail', { requestedSave: launch?.requestedSave ?? false, savedVersions: launch?.savedVersions ?? [], quitSaved: launch?.quitSaved ?? false }),
     row(4, fullRun && scan && scan.providerHosts.length === 0 && launch?.modelFailures === 0 ? 'pass' : 'fail', { staticProviderHosts: scan?.providerHosts ?? [], modelJobs: launch?.modelJobs ?? [], failedRoutes: launch?.modelFailures ?? 0 }),
     row(5, fullRun && scan && scan.hostFindingsComplete && staticDenied.length === 0 && launch && launch.refused === 0 && launch.sampleErrors === 0 && launch.missedSamples === 0 && launch.sdkSamples > 0 && launch.endpoints.length === 0 ? 'pass' : 'fail', { staticDenied, staticFindings: scan?.hostFindings ?? [], staticFindingCount: scan?.hostFindingCount ?? 0, staticFindingsComplete: scan?.hostFindingsComplete ?? false, observedConnections: launch?.observedEndpoints ?? [], deniedConnections: launch?.endpoints ?? [], samples: launch?.samples ?? 0, sdkSamples: launch?.sdkSamples ?? 0, sampleErrors: launch?.sampleErrors ?? 0, missedSamples: launch?.missedSamples ?? 0, sampler: launch?.sampler ?? null, sampleEveryMs: SOCKET_SAMPLE_MS, refusedMessages: launch?.refused ?? 0, limits: 'Static literals and sampled TCP sockets of the launched process; no sandbox or child-process coverage is asserted.' }),
@@ -114,6 +144,25 @@ function socketTransport(socket: WebSocket): Transport {
   };
 }
 
+async function inspectPlayerProjection(plan: CheckPlan, transport: Transport): Promise<PlayerProjectionEvidence> {
+  const peer = callPort(transport, ADMISSION_MS);
+  const methods = REMOTE_PLAYER_PROJECTION_METHODS;
+  const descriptor = RemotePlayerProjectionDescriptor.parse(await peer.call(methods.describe));
+  const players = [
+    { sender: randomBytes(16).toString('hex'), handle: '@crowsfeather', host: true },
+    { sender: randomBytes(16).toString('hex'), handle: '@ironwrit', host: false },
+  ];
+  for (const player of players) {
+    if (await peer.call(methods.admit, player) !== undefined) throw new Error('the game returned invalid player admission');
+  }
+  for (const { sender } of players) {
+    const snapshot = RemotePlayerProjectionSnapshot.parse(await peer.call(methods.snapshot, { sender }));
+    if (!snapshot.length) throw new Error('the game did not project a player view');
+  }
+  return { protocol: descriptor.protocol, executableSha256: plan.files.find(file => file.path === plan.entryPath)!.sha256,
+    descriptorSha256: digest(descriptor), nonStateTreeSha256: nonStateTreeSha256(plan), admittedPlayers: 2, snapshots: 2 };
+}
+
 async function launchBuild(plan: CheckPlan, manifest: Manifest, services: CheckServices, signal?: AbortSignal, isolation?: CheckLaunchIsolation): Promise<LaunchEvidence> {
   const out: LaunchEvidence = { admitted: false, runMs: 0, requestedSave: false, savedVersions: [], saveReasons: [], quitSaved: false, modelJobs: [], modelFailures: 0, refused: 0, endpoints: [], observedEndpoints: [], sdkSamples: 0, samples: 0, sampleErrors: 0, missedSamples: 0, sampler: '' };
   const entry = await checkedPath(plan.root, plan.entryPath);
@@ -125,6 +174,9 @@ async function launchBuild(plan: CheckPlan, manifest: Manifest, services: CheckS
   if (!address || typeof address === 'string') throw new Error('the local check listener did not open');
   const sdkEndpoint = `127.0.0.1:${address.port}`;
   let bridge: HostBridge | undefined; let consumed = false; let disconnected = false;
+  let projection: Transport | undefined;
+  let projectionStarted = false, projectionOpen = true;
+  const closeProjection = () => { projectionOpen = false; projection?.close(); };
   let accept!: () => void; let reject!: (error: Error) => void;
   const ready = new Promise<void>((yes, no) => { accept = yes; reject = no; });
   const admission = setTimeout(() => reject(new Error('the checked build did not reach the SDK within its admission window')), ADMISSION_MS);
@@ -137,12 +189,26 @@ async function launchBuild(plan: CheckPlan, manifest: Manifest, services: CheckS
       if (!valid) { socket.close(1008); return; }
       consumed = true;
       socket.once('close', () => { disconnected = true; });
-      bridge = new HostBridge(socketTransport(socket), manifest.asks!, {
+      const transport = socketTransport(socket);
+      const split = requiresPlayerProjection(plan.target, manifest) ? splitInstalledPlayerTransport(transport) : undefined;
+      projection = split?.projection;
+      projection?.onClose?.(() => {
+        if (projectionOpen) delete out.playerProjection;
+        projectionOpen = false;
+      });
+      bridge = new HostBridge(split?.core ?? transport, manifest.asks!, {
         ready: () => {
           if (out.admitted) { out.refused++; return; }
           out.admitted = true;
           bridge!.send({ type: 'grant', asks: manifest.asks!, session: 'build-check', headless: true, version: { id: plan.version, seq: 0 }, files: plan.files.map(({ path, size, sha256 }) => ({ path, size, sha256 })), display: { theme: 'light', textSize: 'default', contrast: 'default', motion: 'full', language: 'en' } });
           accept();
+        },
+        progress: fraction => {
+          if (fraction !== 1 || !out.admitted || !projection || !projectionOpen || projectionStarted) return;
+          projectionStarted = true;
+          void inspectPlayerProjection(plan, projection).then(proof => {
+            if (projectionOpen) out.playerProjection = proof;
+          }, () => {});
         },
         fileRead: async path => {
           if (!plan.files.some(file => file.path === path)) throw new Error('the file is outside the check tree');
@@ -190,6 +256,7 @@ async function launchBuild(plan: CheckPlan, manifest: Manifest, services: CheckS
     const began = performance.now();
     await Promise.race([delay(CHECK_DURATION_MS, undefined, { signal: runSignal }), exit.then(() => { throw new Error('the checked build exited before the run completed'); })]);
     out.runMs = Math.floor(performance.now() - began);
+    closeProjection();
     if (exited || disconnected) throw new Error('the checked build did not remain connected');
     await bridge!.requestSave('interval'); out.requestedSave = true;
     const beforeQuit = out.saveReasons.length;
@@ -197,7 +264,7 @@ async function launchBuild(plan: CheckPlan, manifest: Manifest, services: CheckS
     out.quitSaved = out.saveReasons.slice(beforeQuit).includes('leaving');
   } catch { out.failure = signal?.aborted ? 'the build check was cancelled' : 'the launch, connection, or save lifecycle did not complete'; }
   finally {
-    stop.abort(); clearTimeout(admission); clearInterval(samplingTimer); signal?.removeEventListener('abort', abort);
+    stop.abort(); closeProjection(); clearTimeout(admission); clearInterval(samplingTimer); signal?.removeEventListener('abort', abort);
     await pendingSample; bridge?.close();
     for (const socket of server.clients) socket.terminate();
     await new Promise<void>(resolve => server.close(() => resolve()));
@@ -221,6 +288,12 @@ export async function runBuildCheck(plan: CheckPlan, services: CheckServices, si
     validateFiles(plan.files); folderPath(plan.entryPath);
     const prefix = manifest.entry?.installs?.[target];
     if (!prefix || !under(plan.entryPath, folderPath(prefix)) || !plan.files.some(file => file.path === plan.entryPath && file.executable)) throw new Error('the target has no executable entry');
+    if (requiresPlayerProjection(target, manifest)) {
+      const declared = manifest.entry?.executables?.server;
+      if ((declared && declared !== plan.entryPath) || !plan.files.some(file => file.path === manifest.entry?.web)) {
+        throw new Error('the installed player projection does not have its exact executable and web entry');
+      }
+    }
     scan = await scanTree(plan.root, plan.files, target, manifest, plan.providerHosts);
     const manifestFile = plan.files.find(file => file.path === 'manifest.json');
     const manifestBytes = await readFile(await checkedPath(plan.root, 'manifest.json'));

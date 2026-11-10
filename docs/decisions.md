@@ -1,5 +1,13 @@
 # Decisions: ew-sdk
 
+## 2026-11-10 Check installed player projection before signing
+
+**Decision.** Probe the declared projection on the admitted socket during the existing isolated server build check. Bind the launch observation to the scanned executable, the exact observed descriptor and the immutable non-state files.
+
+**Alternatives.** Checking a different process would separate the evidence from the artifact. A declaration alone would supply no observed projection.
+
+**Rationale.** E17 already checks the executable that the signing service receives. The projection observation belongs to the same original and keeps the six check rows and canonical build list.
+
 ## 2026-11-10: Keep installed player projection on the existing launcher socket
 
 **Decision.** Offer a separate SDK entry point for games that implement the portable player projection. Reuse the current launcher URL, one-use credential and Host transport. Ordinary core frames keep their existing shape.
