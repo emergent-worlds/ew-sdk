@@ -428,7 +428,7 @@ export const reviewedMetadata = [
       "contextSha256": "514afe7380e3b68e820067d81a8a32c3a248d21cd344ac26df6e115ee97b5eea"
     }
   ]
-}
+},
 {
   "artifactSha256": "367a98bde7261cff8136fa26abb72dbcc88b09ea154a6da69497b253d57acd8f",
   "artifactSize": 476016,
