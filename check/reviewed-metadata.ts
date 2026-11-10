@@ -429,6 +429,67 @@ export const reviewedMetadata = [
     }
   ]
 }
+{
+  "artifactSha256": "367a98bde7261cff8136fa26abb72dbcc88b09ea154a6da69497b253d57acd8f",
+  "artifactSize": 476016,
+  "target": "server",
+  "path": "build/server/run",
+  "embedded": {
+    "offset": 45224,
+    "size": 332921,
+    "sha256": "851d7bf8eca4280d4015d2b4f4fb653b87fccab648aa66777da22b9198115a3f"
+  },
+  "occurrences": [
+    {
+      "offset": 46221,
+      "rawLength": 9,
+      "rawSha256": "12ca17b49af2289436f303e0166030a21e525d266e209267433801a8fd4071a0",
+      "host": "127.0.0.1",
+      "id": "kestrel-compatible-engine-macos13-arm64-46221",
+      "revision": "ew.technical-occurrence.v1",
+      "interpretation": "The URL shim fills a hostname field after checking the exact launcher URL. The native socket uses the captured URL.",
+      "contextOffset": 46146,
+      "context": ";\n    Object.assign(this, {href: __launch.url, protocol: 'ws:', hostname: '127.0.0.1', port: __launch.port, username: '', password: '', search: '', hash: ''});",
+      "contextSha256": "071731a72e0f4f4682e9871f606092a14c3af67566e77ffc2288dbd662e4c046"
+    },
+    {
+      "offset": 92628,
+      "rawLength": 7,
+      "rawSha256": "2e7c91921cacfcad057970024e9b3d20d104e60427eede3dda5d84bbaf27e1d2",
+      "host": "t.local",
+      "id": "kestrel-compatible-engine-macos13-arm64-92628",
+      "revision": "ew.technical-occurrence.v1",
+      "interpretation": "Minified Zod datetime validation reads the local option and uses it to choose a timezone pattern in a regular expression.",
+      "contextOffset": 92553,
+      "context": "Exp(`^${Fi(t)}$`)}function Zi(t){let e=`${zi}T${Fi(t)}`,r=[];return r.push(t.local?\"Z?\":\"Z\"),t.offset&&r.push(\"([+-]\\\\d{2}:?\\\\d{2})\"),e=`${e}(${r.join(\"|\")})",
+      "contextSha256": "1ba19f6510c09b94761675d1b9747bcf598939635d5bb317e72a3fd1692a0d64"
+    },
+    {
+      "offset": 172125,
+      "rawLength": 9,
+      "rawSha256": "12ca17b49af2289436f303e0166030a21e525d266e209267433801a8fd4071a0",
+      "host": "127.0.0.1",
+      "id": "kestrel-compatible-engine-macos13-arm64-172125",
+      "revision": "ew.technical-occurrence.v1",
+      "interpretation": "The SDK compares the parsed hostname with loopback. The socket receives the separately validated original address.",
+      "contextOffset": 172050,
+      "context": "rror(\"invalid loopback address\"))}return s.protocol!==\"ws:\"||s.hostname!==\"127.0.0.1\"||!s.port||s.username||s.password||s.search||s.hash?Promise.reject(new Err",
+      "contextSha256": "380f6f7576a4b22f61fb461b4a1e77940bb6d9194a0921a229873ac5fcaffc2b"
+    },
+    {
+      "offset": 299457,
+      "rawLength": 7,
+      "rawSha256": "2e7c91921cacfcad057970024e9b3d20d104e60427eede3dda5d84bbaf27e1d2",
+      "host": "t.local",
+      "id": "kestrel-compatible-engine-macos13-arm64-299457",
+      "revision": "ew.technical-occurrence.v1",
+      "interpretation": "Minified Zod datetime validation reads the local option and uses it to choose a timezone pattern in a regular expression.",
+      "contextOffset": 299382,
+      "context": "Exp(`^${Td(t)}$`)}function Rd(t){let e=`${jd}T${Td(t)}`,r=[];return r.push(t.local?\"Z?\":\"Z\"),t.offset&&r.push(\"([+-]\\\\d{2}:?\\\\d{2})\"),e=`${e}(${r.join(\"|\")})",
+      "contextSha256": "748528828e84d23f4ca509d5268e9a9629a01a2644105cc13964458a81f23799"
+    }
+  ]
+},
 ] as const;
 
 export function reviewedOccurrence(artifactSha256: string, artifactSize: number, target: string, path: string, finding: {offset: number; rawLength: number; rawSha256: string; host: string | null}) {
