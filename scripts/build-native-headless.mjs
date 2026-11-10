@@ -10,12 +10,12 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 const run=promisify(execFile), root=fileURLToPath(new URL('../',import.meta.url));
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const sampleApplication = `import {connect} from ${JSON.stringify(resolve(root,'src/index.ts'))}; import {createYard} from ${JSON.stringify(resolve(root,'sample/src/core.ts'))}; void (async()=>{await createYard(await connect({url:__launch.url,token:__launch.token}));})().catch(()=>__fatal());`;
-export async function buildNativeHeadless(output=resolve(root,'sample/build/server-macos/kestrel-yards'), applicationSource=sampleApplication) {
+export async function buildNativeHeadless(output=resolve(root,'sample/build/server-macos/kestrel-yards'), applicationSource=sampleApplication, aliases) {
  if(process.platform!=='darwin'||process.arch!=='arm64') throw Error('This target requires macOS arm64. Other targets remain unsupported.');
  const temporary=await mkdtemp(join(tmpdir(),'ew-native-sample-'));
  try {
   const bundle=join(temporary,'application.js');
-  const result=await build({stdin:{contents:applicationSource,resolveDir:root,sourcefile:'native-entry.ts'},outfile:bundle,bundle:true,minify:true,sourcemap:false,format:'iife',platform:'browser',target:'es2022',metafile:true,logLevel:'silent'});
+  const result=await build({stdin:{contents:applicationSource,resolveDir:root,sourcefile:'native-entry.ts'},outfile:bundle,bundle:true,minify:true,sourcemap:false,format:'iife',platform:'browser',target:'es2022',metafile:true,logLevel:'silent',...(aliases ? {alias:aliases} : {})});
   for(const value of Object.values(result.metafile.outputs)) if(value.imports.length) throw Error('Native sample retains external application code.');
   const script=Buffer.concat([await readFile(resolve(root,'sample/native-headless/runtime.js')),Buffer.from('\n'),await readFile(bundle)]);
   await writeFile(bundle,script); await mkdir(dirname(output),{recursive:true});
