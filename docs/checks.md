@@ -62,6 +62,8 @@ The frozen Bun artifact production check ran60,002ms through the actual claimed 
 
 The same bytes at another offset/path, a changed artifact, an unsupported artifact format or another version receive no inherited disposition. The focused native test proves the exact raw section/context and whole artifact identity, then alters one byte and appends a duplicate endpoint; both return unresolved hosts with no disposition. Every other potential endpoint and the existing runtime, provider, frame, save, sampling and signing gates remain unchanged. The finite record intentionally stops applying when packaging or its dependencies change. A new target requires new exact proof and a complete check.
 
+The opt-in Kestrel player-projection executable `ecdfcc9bae4e9c70967c6c4fa63b9f43afa3710793ff2aa3f8a546bd549d7f94` has four independently reviewed occurrences in its exact embedded JavaScript section. The two loopback occurrences reflect or compare the captured launcher address. The two `t.local` occurrences read a date-parser option. The existing full-file and occurrence identity checks apply. The runtime check still requires observed sockets, admitted snapshots, saves and signing evidence for those exact bytes.
+
 The native target's local linker code signature permits macOS execution and is not the platform's immutable-artifact signature or a release. The declared macOS13 arm64 deployment target is recorded separately from actual current-host execution evidence. Other operating systems, native-window play, real provider coverage, signing and full J11 acceptance are not established by this continuation.
 
 
