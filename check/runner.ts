@@ -3,7 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
-  HostBridge, Manifest, BuildTarget, canonicalBuildList, parseBuildList, callPort, splitInstalledPlayerTransport,
+  HostBridge, Manifest, BuildTarget, canonicalBuildList, parseBuildList, portablePath, callPort, splitInstalledPlayerTransport,
   REMOTE_PLAYER_PROJECTION_METHODS, RemotePlayerProjectionDescriptor, RemotePlayerProjectionSnapshot,
   type BuildList, type BuildFile, type HostHandlers, type Transport,
 } from '@emergent-worlds/host';
@@ -69,6 +69,11 @@ interface LaunchEvidence {
 
 const requiresPlayerProjection = (target: string, manifest: Manifest) =>
   target === 'server' && manifest.entry?.playerProjection === 'ew.remote-player.v1';
+function validPlayerProjectionEntry(plan: CheckPlan, manifest: Manifest): boolean {
+  const web = manifest.entry?.web, declared = manifest.entry?.executables?.server;
+  return !!web && web.length <= 512 && portablePath(web) && !web.startsWith('state/')
+    && (!declared || declared === plan.entryPath) && plan.files.some(file => file.path === web);
+}
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 function nonStateTreeSha256(plan: CheckPlan): string {
   return digest(plan.files.filter(file => !file.path.startsWith('state/'))
@@ -89,11 +94,12 @@ function matchedPlayerProjection(plan: CheckPlan, evidence: PlayerProjectionEvid
 export async function checkRows(plan: CheckPlan, scan: StaticEvidence | undefined, launch: LaunchEvidence | undefined, services: Pick<CheckServices, 'sign'>): Promise<CheckRow[]> {
   const manifest = Manifest.safeParse(plan.manifest);
   const prefix = manifest.success ? manifest.data.entry?.installs?.[plan.target as BuildTarget] : undefined;
-  const entry = Boolean(prefix && under(plan.entryPath, prefix) && plan.files.some(file => file.path === plan.entryPath && file.executable));
+  const needsProjection = manifest.success && requiresPlayerProjection(plan.target, manifest.data);
+  const projectionEntry = manifest.success && (!needsProjection || validPlayerProjectionEntry(plan, manifest.data));
+  const entry = Boolean(prefix && under(plan.entryPath, prefix) && plan.files.some(file => file.path === plan.entryPath && file.executable) && projectionEntry);
   const row = (line: number, result: CheckResult, evidence: Record<string, unknown>): CheckRow => ({ line, name: CHECK_LINES[line - 1]!, result, evidence });
   const fullRun = Boolean(launch?.admitted && launch.runMs >= CHECK_DURATION_MS && !launch.failure);
-  const needsProjection = manifest.success && requiresPlayerProjection(plan.target, manifest.data);
-  const projection = needsProjection ? matchedPlayerProjection(plan, launch?.playerProjection) : null;
+  const projection = needsProjection && projectionEntry ? matchedPlayerProjection(plan, launch?.playerProjection) : null;
   const launchFailure = launch?.failure ?? (needsProjection && !projection ? 'the installed player projection did not complete its required probe' : null);
   const network = manifest.success ? manifest.data.asks?.network ?? [] : [];
   const staticDenied = scan?.hosts.filter(host => !hostAllowed(host, network)) ?? [];
@@ -288,11 +294,8 @@ export async function runBuildCheck(plan: CheckPlan, services: CheckServices, si
     validateFiles(plan.files); folderPath(plan.entryPath);
     const prefix = manifest.entry?.installs?.[target];
     if (!prefix || !under(plan.entryPath, folderPath(prefix)) || !plan.files.some(file => file.path === plan.entryPath && file.executable)) throw new Error('the target has no executable entry');
-    if (requiresPlayerProjection(target, manifest)) {
-      const declared = manifest.entry?.executables?.server;
-      if ((declared && declared !== plan.entryPath) || !plan.files.some(file => file.path === manifest.entry?.web)) {
-        throw new Error('the installed player projection does not have its exact executable and web entry');
-      }
+    if (requiresPlayerProjection(target, manifest) && !validPlayerProjectionEntry(plan, manifest)) {
+      throw new Error('the installed player projection does not have its exact executable and immutable web entry');
     }
     scan = await scanTree(plan.root, plan.files, target, manifest, plan.providerHosts);
     const manifestFile = plan.files.find(file => file.path === 'manifest.json');

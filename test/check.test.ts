@@ -62,6 +62,15 @@ describe('E17 evidence does not invent passes', () => {
       expect(rows[1]!.evidence).not.toHaveProperty('playerProjection');
       expect(rows[5]!.result).toBe('pending');
     }
+    for (const path of ['state/private.html', 'web/CON.html']) {
+      const unsafe = { ...selected, files: [...plan.files, { ...web, path }],
+        manifest: { ...selected.manifest, entry: { ...selected.manifest.entry, web: path } } };
+      const checkedFiles = unsafe.files.filter(file => !file.path.startsWith('state/')).map(({ path, sha256, size }) => [path, sha256, size]);
+      const matching = { ...proof, nonStateTreeSha256: createHash('sha256').update(JSON.stringify(checkedFiles)).digest('hex') };
+      const rows = await checkRows(unsafe, scan, { ...launch, playerProjection: matching }, { sign });
+      expect(rows.slice(0, 2).map(row => row.result)).toEqual(['fail', 'fail']);
+      expect(rows[1]!.evidence).not.toHaveProperty('playerProjection');
+    }
     expect(sign).not.toHaveBeenCalled();
     const rows = await checkRows(selected, scan, { ...launch, playerProjection: proof }, { sign });
     expect(rows[1]!.result).toBe('pass');
