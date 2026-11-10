@@ -1,5 +1,13 @@
 # Decisions: ew-sdk
 
+## 2026-11-10 Project the installed Kestrel yard
+
+**Decision.** Build a separate opted-in macOS server tree with the existing yard, renderer and exact Engine package. The App frame draws and acknowledges the admitted projection. The core retains the existing private state, change and save handlers.
+
+**Alternatives.** A parallel simulation would separate the shared view and terminal from the saved state. Opening the local worker in the remote frame would give the page the wrong state authority.
+
+**Rationale.** Both player views observe the installed yard from the same held core. The original local sample stays on its established worker and launcher paths.
+
 ## 2026-11-10 Check installed player projection before signing
 
 **Decision.** Probe the declared projection on the admitted socket during the existing isolated server build check. Bind the launch observation to the scanned executable, the exact observed descriptor and the immutable non-state files.

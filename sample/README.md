@@ -45,3 +45,9 @@ The standalone server build uses `scripts/build-standalone-sample.mjs` directly 
 ### Minimal macOS server target
 
 `pnpm build:sample:server:macos` builds a separate headless macOS13 arm64 executable using system Foundation and JavaScriptCore. Every actual SDK, Kestrel and Engine asset is embedded as raw JavaScript; no Node, Bun, Homebrew, developer toolchain or downloaded application asset is required to launch it. The adjacent `.build.json` records exact artifact/source hashes, target and system linkage. The same ordinary SDK connection and game core are used for checks. The frozen current-macOS production check passed its first five rows; independent Astra acceptance covers this exact current-macOS arm64 headless boundary, while signing remains pending. It is not a signed or supported release. Windows/Linux, installed window, web and full J11 acceptance remain open.
+
+### Opt-in installed shared server
+
+`node scripts/build-projected-sample.mjs /absolute/fresh-output` builds the same yard for a macOS arm64 installed Server. The output tree contains the native entry, a direct licensed App page and the manifest that declares the portable player projection. The build receipt and exact Engine binding sit outside the tree. The default web worker, Tauri, and headless builds use their existing entry points.
+
+The App frame renders the admitted yard snapshot before acknowledging it. It uses the same assignment and day controls as the solo page. The installed core projects a bounded shared view and accepts only yard actions. A player can read the current yard again after a long idle period. Private engine and save requests stay on the Server's core connection. The installed build still requires the normal scan and signing decision.

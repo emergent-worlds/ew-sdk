@@ -45,6 +45,8 @@ Installed games can explicitly open a player projection alongside their core thr
 
 For an installed server that declares `entry.playerProjection`, E17 uses the same admitted socket and exact scanned executable to request a descriptor and a snapshot for each of two controlled players after completed progress. The launch row retains only the protocol, executable hash, descriptor hash, non-state tree hash and the two counts. Missing or malformed projection evidence prevents signing. The full observed run and both account-backed saves remain required.
 
+The opt-in installed Kestrel sample packages the same Engine-backed yard with a direct licensed App page. Its renderer is shared with the local worker page. Only the yard view, assignment and day advancement reach the player port. The original read and change handlers remain on the private core port, where the Server holds the licensed engine authority.
+
 ## Actual server-session readiness
 
 The shared Kestrel core emits progress(1) only after saved-state loading and all core handlers are ready. Earlier local smokes waited only for status, which did not expose the missing progress signal. The real HeadlessSession remained starting and could not advance or perform its interval save. The smoke now waits for completed progress, and check:server-session uses the actual sibling server session against real Node, Bun and compiled sample children. It proves running state, real engine carry, interval save, retained failed final save, saved end, child reaping and exact-state resume. The interpreted fixtures observe natural process exit; compiled mode uses the actual server child adapter after its correlated saved quit and fenced end.
