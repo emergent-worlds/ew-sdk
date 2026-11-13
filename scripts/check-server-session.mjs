@@ -17,7 +17,7 @@ import { launchInstalledCore } from '../../ew-server/dist/installed-child.js';
 import { stageInstalledServer } from '../../ew-server/dist/installed-stage.js';
 const manifest = Manifest.parse(JSON.parse(await readFile(new URL('../sample/manifest.json', import.meta.url), 'utf8')));
 const mode = process.argv[2] ?? (globalThis.Bun ? 'bun' : 'node'), compiled = mode === 'compiled';
-let runtime = compiled ? fileURLToPath(new URL('../sample/build/server/kestrel-yards', import.meta.url)) : mode === 'bun' ? 'bun' : process.execPath;
+let runtime = compiled ? fileURLToPath(new URL('../sample/build/server/kestrel-yards'+(process.platform==='win32'?'.exe':''), import.meta.url)) : mode === 'bun' ? 'bun' : process.execPath;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 if (compiled) assert.equal(await nativeEntryTarget(runtime, AbortSignal.timeout(1000)), process.platform === 'darwin' ? `macos-${process.arch}` : process.platform === 'win32' ? 'windows-x64' : 'linux-x64');
 let stage, stageBase;

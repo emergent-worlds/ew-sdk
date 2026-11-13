@@ -1,5 +1,14 @@
 # Decisions: ew-sdk
 
+## 2026-11-13: Embed the complete portable sample in a small native JavaScript engine
+
+**Decision.** Use source-pinned MIT QuickJS-NG0.11.0 with a finite C launcher-channel adapter for the normal Linux-x64 and Windows-x64 standalone sample builds. Embed the same SDK, Kestrel Yards, Engine and native primitive JavaScript as raw scanned bytes. Keep the current Mac/JSC program and all original target check/signing requirements.
+
+**Alternatives.** The retained Bun executable contains unrelated updater, package and inspector runtime implementations with incomplete endpoint findings. Hiding those bytes or granting broad runtime access would not resolve the original checked-build requirement. A separate game or fabricated save implementation would not prove the sample.
+
+**Rationale.** The existing Platform QuickJS execution establishes a relevant full-Engine precedent; native QuickJS-NG is a distinct runtime that still needs its own actual target compilation and behavior proof. A core-only engine with the exact launch socket, encoding, timers and promise scheduler preserves the real shared program while removing the unrelated general runtime packaging. Source, compiler, section, license and actual artifact identities are retained. No execution or whole mechanism acceptance follows from this source decision.
+
+
 ## 2026-11-10 Check installed player projection before signing
 
 **Decision.** Probe the declared projection on the admitted socket during the existing isolated server build check. Bind the launch observation to the scanned executable, the exact observed descriptor and the immutable non-state files.

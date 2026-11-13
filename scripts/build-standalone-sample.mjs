@@ -1,5 +1,6 @@
 /** Fresh self-contained sample packaging. This does not classify, sign or release an artifact. */
 import {build} from 'esbuild';
+import {buildPortableHeadless} from './build-portable-headless.mjs';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {builtinModules} from 'node:module';
@@ -17,7 +18,9 @@ export async function bundleStandaloneEntry(entry,outfile){
  for(const output of Object.values(result.metafile.outputs))for(const dependency of output.imports)if(dependency.external&&!builtins.has(dependency.path))throw Error('The standalone sample retains an external runtime dependency.');
  return createHash('sha256').update(await readFile(outfile)).digest('hex');
 }
-export async function buildStandaloneSample(output=resolve(root,'sample/build/server/kestrel-yards')){
+export async function buildStandaloneSample(output){
+ if(['linux','win32'].includes(process.platform))return buildPortableHeadless(output??resolve(root,'sample/build/server/kestrel-yards'+(process.platform==='win32'?'.exe':'')));
+ output??=resolve(root,'sample/build/server/kestrel-yards');
  const temporary=await mkdtemp(join(tmpdir(),'ew-sdk-package-'));
  try{
   const bundle=join(temporary,'headless.mjs'),sourceBundleSha256=await bundleStandaloneEntry(resolve(root,'sample/src/headless.ts'),bundle);

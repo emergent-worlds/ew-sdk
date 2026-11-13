@@ -45,3 +45,10 @@ The standalone server build uses `scripts/build-standalone-sample.mjs` directly 
 ### Minimal macOS server target
 
 `pnpm build:sample:server:macos` builds a separate headless macOS13 arm64 executable using system Foundation and JavaScriptCore. Every actual SDK, Kestrel and Engine asset is embedded as raw JavaScript; no Node, Bun, Homebrew, developer toolchain or downloaded application asset is required to launch it. The adjacent `.build.json` records exact artifact/source hashes, target and system linkage. The same ordinary SDK connection and game core are used for checks. The frozen current-macOS production check passed its first five rows; independent Astra acceptance covers this exact current-macOS arm64 headless boundary, while signing remains pending. It is not a signed or supported release. Windows/Linux, installed window, web and full J11 acceptance remain open.
+
+
+### Portable native headless source
+
+On actual Linux-x64 and Windows-x64 workers, `pnpm build:sample:server` selects the core-only QuickJS native builder. The direct `build:sample:server:portable` command can choose an explicit output path. The complete SDK, this same core and the real Engine are bundled without external application imports. Matching system C compilers and CMake are required at build time; neither Node, Bun, downloaded code nor an installed JavaScript runtime is used when the resulting program launches. The Windows standalone development probe uses the emitted `.exe` filename.
+
+The implementation remains unexecuted on those targets. Its four real-protocol controls and all original production-scan, kernel, six-row, account and signing requirements remain open. The Mac/JSC build path and its retained exact evidence are unchanged. See `docs/portable-native-sample.md` at the SDK root for exact source and compiler boundaries.

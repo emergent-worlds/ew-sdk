@@ -13,7 +13,7 @@ const state = new Map();
 const reasons = [];
 const compiled = process.argv[2] === 'compiled';
 const native = process.argv[2] === 'native';
-const runtime = native ? fileURLToPath(new URL(`../sample/src-tauri/target/debug/kestrel-yards${process.platform === 'win32' ? '.exe' : ''}`, import.meta.url)) : compiled ? fileURLToPath(new URL('../sample/build/server/kestrel-yards', import.meta.url)) : process.argv[2] === 'bun' ? 'bun' : process.execPath;
+const runtime = native ? fileURLToPath(new URL(`../sample/src-tauri/target/debug/kestrel-yards${process.platform === 'win32' ? '.exe' : ''}`, import.meta.url)) : compiled ? fileURLToPath(new URL('../sample/build/server/kestrel-yards'+(process.platform==='win32'?'.exe':''), import.meta.url)) : process.argv[2] === 'bun' ? 'bun' : process.execPath;
 
 async function launch(check) {
   const server = new WebSocketServer({ host: '127.0.0.1', port: 0 });
