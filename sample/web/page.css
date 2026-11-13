@@ -1,0 +1,36 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  background: var(--yard-ground, Canvas);
+  color: var(--yard-ink, CanvasText);
+}
+:root[data-theme=light] { color-scheme: light; }
+:root[data-theme=dark] { color-scheme: dark; }
+:root[data-text-size=small] { font-size: 90%; }
+:root[data-text-size=large] { font-size: 115%; }
+:root[data-text-size=larger] { font-size: 130%; }
+:root[data-theme=light][data-contrast=high] { --yard-ground: #fff; --yard-ink: #000; }
+:root[data-theme=dark][data-contrast=high] { --yard-ground: #000; --yard-ink: #fff; }
+
+body { margin: 0; }
+main { max-width: 54rem; margin: auto; padding: clamp(1rem, 4vw, 3rem); }
+h1 { font-size: clamp(2rem, 1.5rem + 3vw, 3.5rem); }
+p { line-height: 1.7; }
+button {
+  font: inherit;
+  padding: .8rem 1.1rem;
+  margin: .3rem;
+  border: 1px solid currentColor;
+  border-radius: .3rem;
+  background: var(--yard-ground, ButtonFace);
+  color: var(--yard-ink, ButtonText);
+  cursor: pointer;
+}
+button[aria-pressed=true] { font-weight: 700; outline: 2px solid currentColor; }
+button:disabled { opacity: .6; cursor: default; }
+:root[data-contrast=high] button { border-width: 2px; }
+:root[data-contrast=high] button:focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
+:root[data-contrast=high] button:disabled { opacity: 1; border-style: dashed; }
+@media (max-width: 32rem) {
+  button { display: block; width: 100%; margin: .6rem 0; }
+}

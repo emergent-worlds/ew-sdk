@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "The sample's own window and its graceful close.",
+  "windows": ["main"],
+  "permissions": ["core:default", "core:window:allow-destroy"]
+}

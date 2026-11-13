@@ -2,6 +2,8 @@
 
 The SDK through which an installed game reaches the App beside it.
 
+The accepted97257c0 current-Mac arm64 programs now complete the ordinary configured beta composition: fresh Google-authenticated six-row checks and official GSM signatures, normal App permission/install/Play/native channel, account save and App quit/reopen, then a separately checked changed-program update preserving that state. The existing Build V2 cycle's `artefact/installed-beta/` retains actual service and native evidence for sole final review. [The current-Mac executor contract](docs/macos-check-executor.md) distinguishes this supervised host from other targets, provider/full journey gates, future macOS support and an unattended fleet.
+
 This repository is part of build V2 of Emergent Worlds, written new from the design record (the operator's direction of 2026-10-12). It is public, under the Apache License 2.0. The plan that placed it is the cycle's [plan.md](https://github.com/emergent-worlds/command-center/blob/main/operations/founder-product-development/cycles/2026-10-13-build-v2/plan.md), approved on 2026-10-14.
 
 ## What it holds
@@ -10,20 +12,77 @@ The library, the loopback transport of the host contract, the check mode the bui
 
 ## The record it answers to
 
-The files page Section 4; MR3.3, MR3.4; J11. The record is the operator's published pages and canvases, indexed in [the coverage index](https://claude.ai/artifact/VyiizrkJLiAS53ky4TTryN); a copy in a repository is not the record, and where this repository and the record differ, the record holds.
+The files page Section 4; MR3.3, MR3.4; J11. The authoritative repository record is indexed in the [product coverage index](../command-center/docs/product/coverage.md). Since the operator's decision of 2026-10-15, the published pages and canvases are its view. Changes are made in those permanent product files first, on review branches; where this repository and the record differ, the record holds.
 
 ## What it depends on
 
-`ew-host`.
+`ew-host` at runtime. The Kestrel Yards sample additionally consumes the real Emergence Engine as a development dependency; SDK consumers do not acquire an engine dependency.
 
 ## Layout
 
-`src/`, `check/`, `sample/`.
+`src/` holds the installed-game binding. `sample/src/core.ts` holds the shared Kestrel Yards state and handlers, with browser worker and headless entries beside it. `sample/src-tauri/` holds the native window source. `scripts/` builds the sample and checks real child processes; `check/frame-host.ts` is the disposable browser host fixture. The sample's [README](sample/README.md) describes these paths and verification limits.
+
+The AppKit window reads the resolved account display from the installed SDK's core grant and follows live display messages. It applies the settings before revealing the window. Account contrast sets the window, text and control colors independently of the Mac setting. Text size scales game text and controls, and reduced motion suppresses window transitions. The browser uses its page grant directly. The Tauri sample passes only validated display through its existing local worker port. Check mode remains headless, and English remains the launch language. The corrected window still requires an official signed update and ordinary installed Play.
+
+`check/runner.ts`, `scan.ts`, and `sockets.ts` implement the optional Node build-check tool exported as `sdk/check`. It produces the six E17 evidence rows for one target, with platform service callbacks. Its [contract and limits](docs/checks.md) distinguish a local lifecycle fixture from isolated target checks and canonical signing integration.
 
 ## Technology
+
+The optional [current macOS executor](docs/macos-check-executor.md) supplies actual kernel confinement for a thin arm64 program and SDK-only networking. Its bundled module is hash-pinned by the trusted Journeys dispatcher; missing isolation, mismatched CPU/claim target and unsupported asks refuse before uploaded code launches. A fresh scratch environment and explicit other-process information denial protect the parent credentials. Actual kernel probes cover files, symlinks, writes, network/metadata and process boundaries. The window-capable sample packages the same core with AppKit in one executable, with no UI during headless checks. Complete checked/window/update proof and normal installed App trust remain separate acceptance gates.
 
 TypeScript (the first binding); others as games need them. The reasons are in [`docs/decisions.md`](./docs/decisions.md).
 
 ## Status
 
-Created on 2026-10-14 in wave 0 of build V2; nothing is built yet.
+Created on 2026-10-14 in wave 0. Wave 3, 2026-10-15: `src/index.ts` connects installed games through ew-host commit `2249802`, with explicit core grants and one-use credentials read from the environment or an embedding shell. Check mode follows the same code path. Kestrel Yards now has a real engine core shared by its browser worker, headless SDK process, and native window. Its content was recorded in the permanent files record before implementation. Tests cover connection lifecycle, deterministic play, complete saves, resume, saved fractional away time, terminal changes, and failed-save retry. Real local child-process checks cover Node, Bun, a locally compiled Bun server binary, and the macOS Tauri executable's actual WKWebView and worker; browser evidence covers desktop and phone layouts with host theme changes. The macOS native source passes Cargo check and build. Complete native journeys, Windows and Linux builds, signing, launcher admission, the isolated build check, and J11 acceptance remain open. No npm package is published.
+
+
+The optional check runner uses ew-host's canonical installed build encoding. Its signing callback receives the signed prefix and exact executable, canonical payload, SHA-256 and the exact first five prerequisite rows; the runner refuses a returned hash for different bytes and preserves the payload with the signature in evidence. This closes the structural encoding gap; real signing service/key configuration and artifact acceptance remain open.
+
+The E17 static scan derives all executable containment prefixes from the immutable manifest, validates portable non-overlapping target directories, and permits executable sibling targets. Active-target hosts and network observations remain separate, archives are refused across the complete tree, and signing includes only the selected target.
+
+Installed games can explicitly open a player projection alongside their core through `connectWithRemotePlayerProjection`. Both lanes use the same authenticated launcher socket. The game serves its public per-player view through the Host projection contract, and ordinary saves and other private core work stay on the core lane. The existing `connect` function keeps the original core-only connection.
+
+For an installed server that declares `entry.playerProjection`, E17 uses the same admitted socket and exact scanned executable to request a descriptor and a snapshot for each of two controlled players after completed progress. The launch row retains only the protocol, executable hash, descriptor hash, non-state tree hash and the two counts. Missing or malformed projection evidence prevents signing. The full observed run and both account-backed saves remain required.
+
+## Actual server-session readiness
+
+The shared Kestrel core emits progress(1) only after saved-state loading and all core handlers are ready. Earlier local smokes waited only for status, which did not expose the missing progress signal. The real HeadlessSession remained starting and could not advance or perform its interval save. The smoke now waits for completed progress, and check:server-session uses the actual sibling server session against real Node, Bun and compiled sample children. It proves running state, real engine carry, interval save, retained failed final save, saved end, child reaping and exact-state resume. The interpreted fixtures observe natural process exit; compiled mode uses the actual server child adapter after its correlated saved quit and fenced end.
+
+This development probe has controlled loopback/platform ports and adds no server dependency to the public SDK package. Compiled mode verifies an ephemeral local canonical envelope and streams the actual executable through the sibling server private-stage helper, including signed modes and native compatibility. The server child adapter exclusively reserves and rechecks that stage, then launches only its derived entry over its actual bounded loopback host. It retains failed save/end and prevents stage disposal until reaping, and confirms requested handoff quit before end. This passes on the current macOS-arm64 executable. No fixture key material is persisted or printed. Matching-machine artifact selection and supervised persistent native composition are implemented in ew-server716d8a7, with their controlled compiled proof. Installed App away-runner composition is implemented in ew-app c09784f with account-bound consent, registered-runner commands and saved-quit/reaping tests. Real release trust/key packaging, account-backed populated native journeys and other-target acceptance remain open. The sample manifest still declares no install targets until actual target files are packaged and verified.
+
+E17 static evidence now distinguishes a candidate literal from a syntactically valid endpoint and retains byte-bound occurrence diagnostics. Invalid DNS/IPv4/port forms and partial numeric tokens do not become permission requests. Valid runtime/provider candidates retain the original gates. A bounded256-occurrence report,512byte raw excerpt and explicit streaming-capacity/completeness state prevent incomplete evidence from passing or signing. The recorded October16 compiled artifact does not pass:111 potential endpoints remain, with1,761 occurrences exceeding the retained report capacity. This is a classification/reporting correction under the cycle's R7 architecture review, not metadata disposition, confinement or build acceptance.
+
+
+## Current standalone artifact packaging
+
+The standalone builder now uses the actual current reachable SDK/sample/Engine source, minifies, rejects unresolved runtime imports and disables all four configuration/dotenv autoloads. Its adjacent receipt binds source bundle, compiler/target, flags and executable bytes. The static diagnosis tool accepts an explicit artifact path so historical failed bytes need not be overwritten. Fresh packaging reduces the local sample to71,143,154bytes but still yields109 potential endpoints and1,761 occurrences, with incomplete bounded evidence. Real updater/npm/inspector and certificate URL bytes remain unresolved; no classifier expansion, runtime waiver or network permission is introduced. Focused packaging and production-scanner tests pass. The existing SDK check receipt owns the final account-backed current-artifact run and its remaining R7 gates.
+
+One fresh account-backed production check on artifact SHA256b127aa3ee4a236b68d6dfa883cb73fb09df94c5a4ddfd9244a07a3dcccc62543 ran60,002ms with240samples,238SDK observations and no sampling errors, missed samples, refused messages or denied sampled connections. Interval/leaving saves belong to the actual check account at sequences1/2. Rows1 to4 pass, row5 fails and row6 remains pending because109 static endpoints are unresolved and the256-occurrence report remains incomplete. Zero provider calls establish no provider-routing coverage. This is a correctly retained current-artifact failure, not complete artifact, signing, native, deployed or R7 acceptance.
+
+
+## Minimal macOS server target, implementation in progress
+
+The cycle's admitted R7 continuation B is implemented in `sample/native-headless/` and `scripts/build-native-headless.mjs`. It embeds the same SDK, Kestrel core and Engine as raw JavaScript in a read-only Mach-O section and uses system Foundation/JavaScriptCore on macOS13 arm64. The native adapter exposes only the exact original launcher channel and finite encoding/timer facilities. It requires no separately installed JavaScript runtime or downloaded application code. Build provenance records the source bundle, artifact, target and linked frameworks. Five focused native cases pass, including outside-workspace actual SDK/Engine save/resume, failed-final-save no retry, invalid endpoint refusal and exact technical occurrence changed-byte/duplicate negatives. The frozen current-macOS account-backed production check ran60,001ms and passed rows1-5 with191 complete retained static occurrences, four exact trusted technical dispositions,239 SDK socket samples and actual interval/leaving saves. Independent Astra review accepts this exact current-macOS arm64 headless first-five-row boundary, including an outside-workspace redirect-refusal probe. Row6 is pending and no release support or full R7/J11 closure is claimed. Raw bytes remain scanned and no static disposition or sampler exemption follows from this packaging. Windows/Linux, native window, web, signing, provider coverage, deployed and full J11 gates remain separate.
+
+## Windows native checker source proposal
+
+The matching normal Windows SDK build compiles its trusted native AppContainer/Job helper with the worker's existing compiler and embeds the actual output hash in the trusted adapter bundle. An uploaded build cannot select a helper or supply its policy. The suspended actual AMD64 artifact binds immutable file/process identity before SDK grant or account effects; socket sampling and effects recheck its held native identity. Owned Job descendants, dynamic filters, private profile/desktop and scratch have bounded retirement evidence. Cleanly retired preflight refusal remains failed evidence. Literal native causes are retained without arbitrary messages or credentials. Existing worker authority and SDK loopback configuration are read and required; no elevation, exemption, global policy, service or trust change is made.
+
+This source is unqualified until actual normal compilation, kernel and complete six-row SDK/account/compute/signing execution. The initial Linux and Windows adapters remain SDK-network-only, with nonempty original declared network asks still an open software path. That original capability must be completed using existing manifest/host authority before whole MR3.4 completion. Existing Mac arm64 evidence and Intel/source projections are not relabelled as Windows execution.
+
+
+### MR3.4 declared-network checker continuation
+
+The trusted per-build checker now captures the existing manifest TCP host and optional-port asks once, together with exact current provider exclusion addresses. The same immutable policy feeds native enforcement and the existing socket comparison. Empty asks keep the previous SDK-only target paths. Nonempty asks use an exact per-job Seatbelt addition on the matching Mac ABI, an owned user/net namespace with nft readback and already-installed user-mode transport on Linux, and exact soft-permit/default-block filters in the existing dynamic AppContainer sublayer on Windows. No host policy, user privilege, service, loopback exemption, provider dispatch or signing authority is added.
+
+Normal checker compilation includes every adapter and normally builds the Windows helper only on the matching existing developer worker. Linux confirms all namespace capabilities are dropped before artifact exec, and retires both transport and the owned family. Windows binds actual helper endpoint-policy identity, held image/Job and complete retirement. New address/profile/rule custody is additive; old omitted evidence and empty-network function bodies remain. The authored eight controls and every new normal/native/full-six-row target result are unexecuted; historical official Mac checks remain exact earlier evidence.
+
+
+### MR3.4 portable native sample source continuation
+
+The normal standalone sample builder now selects an embedded QuickJS-NG core on matching Linux-x64 and Windows-x64 developer workers. It packages the complete unchanged SDK, Kestrel Yards core and actual Engine bundle as raw read-only JavaScript in the executable, using the same existing native runtime primitives. The original Mac Swift/JSC builder, native/window source, sample core, Host protocol and accepted Mac artifact bytes are unchanged. The earlier Bun runtime findings remain failed historical evidence.
+
+The portable bridge uses one exact launcher-captured IPv4 loopback URL and one-use credential, secure OS randomness for WebSocket masking, strict upgrade/fragment/UTF8/control handling, finite queues and timers, and actual QuickJS promise jobs. Engine hashes and save serialization still come from the shared application. No guest filesystem, environment, process, std/os module loader, provider service or network destination is added. QuickJS-NG0.11.0 is source-pinned and its MIT notice is retained in the executable and adjacent build output. The existing per-target kernel confinement, declared-network policy, full production scan, original six rows and signing gates remain required.
+
+This is source-only. The common C entry passed a syntax/API check and exact pure codec functions passed inert RFC6455/SHA1, UTF8 and URL vectors. Neither portable executable, compiler target, lifecycle control nor kernel/six-row/signature has executed. The four new controls exercise the real complete HostBridge/Engine lifecycle, exact save/resume, failed-save retry, fragmented/ping frames and invalid authority/upgrade behavior on actual matching workers. [The portable source guide](docs/portable-native-sample.md) records build prerequisites, provenance and these limits.
