@@ -99,4 +99,3 @@ it.skipIf(!supported)('MR3.4 portable native sample refuses redirects and a wron
   finally{clearTimeout(timer);for(const socket of sockets)socket.destroy();await new Promise(resolve=>server.close(resolve));}
  }
 },15000);
-

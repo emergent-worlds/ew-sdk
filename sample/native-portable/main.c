@@ -84,4 +84,3 @@ cleanup:
  if(app.failed)fputs("The embedded application failed.\n",stderr);
  if(app.context){for(size_t j=0;j<1024;j++)if(app.timers[j].id)JS_FreeValue(app.context,app.timers[j].callback);JS_FreeValue(app.context,app.callback);JS_FreeContext(app.context);}if(app.runtime)JS_FreeRuntime(app.runtime);ew_channel_free(app.channel);return app.failed?1:0;
 }
-

@@ -98,4 +98,3 @@ export async function buildPortableHeadless(output){
  }finally{await rm(temporary,{recursive:true,force:true});}
 }
 if(process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.url)console.log(JSON.stringify(await buildPortableHeadless(process.argv[2])));
-

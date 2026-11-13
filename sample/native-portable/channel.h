@@ -17,4 +17,3 @@ void ew_channel_finish(EWChannel *);
 void ew_channel_close(EWChannel *);
 void ew_channel_free(EWChannel *);
 #endif
-

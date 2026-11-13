@@ -149,4 +149,3 @@ void ew_channel_free(EWChannel *c){if(!c)return;ew_channel_close(c);free(c->buff
  if(c->winsock_started)WSACleanup();
 #endif
  free(c);}
-

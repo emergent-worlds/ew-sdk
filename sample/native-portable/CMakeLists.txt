@@ -45,4 +45,3 @@ else()
   target_compile_options(ew_native PRIVATE -Wall -Wextra -Wformat=2)
   target_link_libraries(ew_native PRIVATE m)
 endif()
-

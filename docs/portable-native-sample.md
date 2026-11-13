@@ -32,4 +32,3 @@ Four new cases require the actual normally built program and real HostBridge/Eng
 The source has only Node syntax checks, common C/API syntax parsing and tiny inert exact-function RFC6455/SHA1, UTF8 and URL vectors. No Linux/Windows program has compiled, linked, launched or completed these four cases here. Platform's existing QuickJS-WASM Engine execution is relevant precedent, not qualification of this native engine/version/adapter.
 
 The original production scan, target-specific kernel confinement, thirty-second admission, full sixty-second positive window,250ms socket sampling, provider exclusion, account effects, player-projection prerequisites, six check rows and canonical signing remain unchanged and required. Existing declared-network checker source and Mac evidence remain separate. No new compiler artifact, source-only receipt, development fixture or old Mac signature makes MR3.4 or F8.18 operational.
-
