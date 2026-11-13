@@ -1,0 +1,52 @@
+{
+  "name": "@emergent-worlds/sdk",
+  "version": "0.1.0",
+  "description": "The installed-game binding for the Emergent Worlds host contract.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./check": {
+      "types": "./dist/check/runner.d.ts",
+      "import": "./dist/check/runner.js"
+    }
+  },
+  "files": [
+    "dist",
+    "docs/protocol.md",
+    "docs/checks.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.check.json && node scripts/build-check.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepare": "tsc -p tsconfig.build.json && tsc -p tsconfig.check.json && node scripts/build-check.mjs",
+    "build:sample": "node scripts/build-sample.mjs",
+    "check:sample": "pnpm build:sample && node scripts/check-sample.mjs",
+    "check:runner": "pnpm build && pnpm build:sample && node scripts/check-runner.mjs",
+    "build:sample:server": "node scripts/build-standalone-sample.mjs",
+    "check:server-session": "pnpm build:sample && node scripts/check-server-session.mjs",
+    "build:sample:server:macos": "node scripts/build-native-headless.mjs",
+    "build:sample:server:portable": "node scripts/build-portable-headless.mjs"
+  },
+  "dependencies": {
+    "@emergent-worlds/host": "github:emergent-worlds/ew-host#7683f92f8f8dffec5edd2f9b1e21a1aeaf1ad42c"
+  },
+  "devDependencies": {
+    "@emergentworlds/emergence-engine": "github:emergent-worlds/emergence-engine#95a4048",
+    "@tauri-apps/api": "^2.12.4",
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.0",
+    "esbuild": "^0.25.12",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0",
+    "ws": "^8.18.0"
+  },
+  "packageManager": "pnpm@10.18.0",
+  "engines": {
+    "node": ">=24"
+  }
+}

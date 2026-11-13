@@ -1,0 +1,28 @@
+{
+  "format": "ew.sdk.quickjs-source.v1",
+  "repository": "https://github.com/quickjs-ng/quickjs",
+  "commit": "6a9fe9af5ca0bf7c49ae697edef44864272317d1",
+  "version": "0.11.0",
+  "license": "MIT",
+  "files": {
+    "CMakeLists.txt": "64e1ff9178addf80bd114b6cfbe6eb5588e550f58f6454f6c4724bb70628238c",
+    "LICENSE": "98de27cc1e8c21a61cb242021aeb5b3711d694fab59fd75ad5b84c36b2c86b7e",
+    "builtin-array-fromasync.h": "9b10e64421427b6403d408876bceecf9860eb30360619e467501332bcdd87f25",
+    "cutils.c": "849ac42935105dbf6318ec946a4cae716ab26ac42add7274f6d881634ca890d4",
+    "cutils.h": "f5ae8f80e5c558a0a4ddcc6fb7a0c5da620245333ca4960caac2409e53f8b3df",
+    "dtoa.c": "9f6bb451ca8a74c5f5da885d15ae99ba8abd46d5d9998ee6f0cbb95ceae6c002",
+    "dtoa.h": "462070f7678a894b9f3612422f280f4dce412eb360a5cc585a513f407fc23114",
+    "libregexp-opcode.h": "c5ee518885eb6e720537b6df5565ddc2bcaadbda512f3fc072adc96fb24a7648",
+    "libregexp.c": "6a9e9fbd27e98900937ef1334380d416bc00e6deed49156540d79c7b20247f28",
+    "libregexp.h": "d71f4fef315669351e3b66d06d326d1df1d4c46cc10bb10370219e74cd5f9015",
+    "libunicode-table.h": "edf404e2092c680b6bc88835db79a5834f688be6b6c5d1c1b91da9ecf29deba9",
+    "libunicode.c": "97eb7dff52a8984e68636b103e0f0238b889931681b8beb9e7b152a5a1633a02",
+    "libunicode.h": "70f9f38b1cd10186d22e30d5f604465f4747662701f3310e089e5749060f4d4f",
+    "list.h": "cb6e24e8ee54bccdd66234fe54cd702d1160b9841db2b9b9adeb5003afe301d5",
+    "quickjs-atom.h": "fc3675a173ee9d9beba290d3fb9f2f1be382578474955d32cacc8fd24ad4d257",
+    "quickjs-c-atomics.h": "29883c742a5c512278fce54d19b1b9af949006e1d7dfc9ffa2e0946b184d8c5c",
+    "quickjs-opcode.h": "c246039c7b0db92fe37f5eac3764368d4e9d51cae35ccc0c611e175952966375",
+    "quickjs.c": "55a94decbfbed485043610cbba4d540b95ad69c934a98f7811d0907fda846b38",
+    "quickjs.h": "45da2cd1a1e34e338ec1a39039d8bd61873af52943553ddea1c462af0e722813"
+  }
+}

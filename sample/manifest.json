@@ -1,0 +1,25 @@
+{
+  "name": "Kestrel Yards",
+  "kind": "reality",
+  "version": "1.0.0",
+  "owner": "@mercerpress",
+  "description": "An opening week at a shipyard: six crew, two berths, three orders, and the weather.",
+  "entry": {
+    "web": "web/index.html",
+    "headless": "web/worker.js"
+  },
+  "uses": {
+    "@emergentworlds/emergence-engine": "^1"
+  },
+  "asks": {
+    "surface": "full",
+    "input": [
+      "text",
+      "pointer"
+    ],
+    "saves": true,
+    "agent": "change",
+    "while_away": true,
+    "players": 1
+  }
+}
