@@ -5,6 +5,7 @@ import {tmpdir} from 'node:os';
 import {join, relative, isAbsolute} from 'node:path';
 import {promisify} from 'node:util';
 import {runBuildCheck, type CheckLaunchIsolation, type CheckPlan, type CheckServices} from './runner.js';
+import {requireMacosWorker,requireMacosClaimTarget,requireMacosExecutable} from './macos-target.js';
 
 const exec = promisify(execFile);
 const quote = (value: string) => JSON.stringify(value);
@@ -25,7 +26,7 @@ export function macosCheckProfile(input: {root: string; entry: string; scratch: 
 }
 
 export async function createMacosCheckIsolation(): Promise<CheckLaunchIsolation> {
-  if (process.platform !== 'darwin' || process.arch !== 'arm64') throw Error('This confinement executor requires current macOS arm64');
+  const arch=requireMacosWorker(process.platform,process.arch);
   const stat = await lstat('/usr/bin/sandbox-exec');
   if (!stat.isFile() || stat.isSymbolicLink()) throw Error('The kernel confinement launcher is unavailable');
   // A denied or unavailable sandbox cannot become an ordinary subprocess fallback.
@@ -37,8 +38,8 @@ export async function createMacosCheckIsolation(): Promise<CheckLaunchIsolation>
     const file = await open(entry, 'r');
     try {
       const header = Buffer.alloc(8), {bytesRead} = await file.read(header,0,8,0);
-      // A translated x64 program or a universal selector is not this arm64 target's evidence.
-      if (bytesRead !== 8 || header.readUInt32LE(0) !== 0xfeedfacf || header.readUInt32LE(4) !== 0x0100000c) throw Error('The confined entry requires a thin macOS arm64 executable');
+      // Only the actual current worker ABI supplies this target's evidence; translation and universal selectors refuse.
+      requireMacosExecutable(header.subarray(0,bytesRead),arch);
     } finally {await file.close();}
     const url = new URL(input.sdkUrl);
     if (url.protocol !== 'ws:' || url.hostname !== '127.0.0.1' || !url.port || url.pathname !== '/' || url.search || url.hash || url.username || url.password) throw Error('The confined entry needs one exact SDK endpoint');
@@ -55,14 +56,15 @@ export async function createMacosCheckIsolation(): Promise<CheckLaunchIsolation>
 
 /** Hash-pin the bundled output as the trusted Journeys deployment executor module. */
 export async function createIsolatedCheckExecutor(input: {platform:string;arch:string;target:string;signal:AbortSignal}) {
-  if (input.platform !== process.platform || input.arch !== process.arch || !['macos-arm64','server'].includes(input.target)) throw Error('The confinement executor does not match this worker');
+  requireMacosClaimTarget(input,{platform:process.platform,arch:process.arch});
   input.signal.throwIfAborted(); const isolation = await createMacosCheckIsolation(); input.signal.throwIfAborted();
   return {protocol:'ew.isolated-build-check.v1' as const,platform:process.platform,arch:process.arch,target:input.target,
     execute:async(plan:CheckPlan,services:CheckServices,signal:AbortSignal)=>{
       if (plan.target !== input.target) throw Error('The claimed artifact differs from the confined worker target');
-      // Direct network asks require another qualified executor. They cannot widen this profile.
       const asks=(plan.manifest as {asks?:{network?:unknown[]}})?.asks;
-      if (asks?.network?.length) throw Error('This confinement executor supports SDK-routed networking only');
-      return runBuildCheck(plan,services,AbortSignal.any([signal,input.signal]),isolation);
+      const selected=asks?.network?.length?await (await import('./macos-declared-network.js')).createMacosDeclaredCheckIsolation():isolation;
+      return runBuildCheck(plan,services,AbortSignal.any([signal,input.signal]),selected);
     },close:async()=>{}};
 }
+
+export {createMacosDeclaredCheckIsolation} from './macos-declared-network.js';

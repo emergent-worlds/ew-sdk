@@ -1,5 +1,16 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "rootDir": "check", "outDir": "dist/check", "emitDeclarationOnly": true },
-  "include": ["check/runner.ts", "check/scan.ts", "check/sockets.ts", "check/macos-isolation.ts"]
+  "compilerOptions": {
+    "rootDir": "check",
+    "outDir": "dist/check",
+    "emitDeclarationOnly": true
+  },
+  "include": [
+    "check/runner.ts",
+    "check/scan.ts",
+    "check/sockets.ts",
+    "check/macos-isolation.ts",
+    "check/linux-isolation.ts",
+    "check/windows-isolation.ts"
+  ]
 }

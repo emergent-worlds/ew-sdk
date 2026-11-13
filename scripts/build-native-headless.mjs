@@ -10,8 +10,13 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 const run=promisify(execFile), root=fileURLToPath(new URL('../',import.meta.url));
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const sampleApplication = `import {connect} from ${JSON.stringify(resolve(root,'src/index.ts'))}; import {createYard} from ${JSON.stringify(resolve(root,'sample/src/core.ts'))}; void (async()=>{await createYard(await connect({url:__launch.url,token:__launch.token}));})().catch(()=>__fatal());`;
+/** Normal matching-worker build only; no cross-ABI or translated target is inferred. */
+export function nativeHeadlessTarget(platform=process.platform,arch=process.arch){
+ if(platform!=='darwin'||!['arm64','x64'].includes(arch))throw Error('This target requires its actual macOS arm64 or x64 worker.');
+ return {platform:'darwin',arch,triple:(arch==='arm64'?'arm64':'x86_64')+'-apple-macosx13.0',cpu:arch==='arm64'?0x0100000c:0x01000007};
+}
 export async function buildNativeHeadless(output=resolve(root,'sample/build/server-macos/kestrel-yards'), applicationSource=sampleApplication) {
- if(process.platform!=='darwin'||process.arch!=='arm64') throw Error('This target requires macOS arm64. Other targets remain unsupported.');
+ const target=nativeHeadlessTarget();
  const temporary=await mkdtemp(join(tmpdir(),'ew-native-sample-'));
  try {
   const bundle=join(temporary,'application.js');
@@ -21,11 +26,12 @@ export async function buildNativeHeadless(output=resolve(root,'sample/build/serv
   await writeFile(bundle,script); await mkdir(dirname(output),{recursive:true});
   const {stdout:sdk}=await run('/usr/bin/xcrun',['--sdk','macosx','--show-sdk-path']);
   const {stdout:version}=await run('/usr/bin/swiftc',['--version']);
-  await run('/usr/bin/swiftc',['-swift-version','5','-O','-module-name','KestrelYardsHeadless','-sdk',sdk.trim(),'-target','arm64-apple-macosx13.0','-framework','JavaScriptCore','-framework','Foundation',resolve(root,'sample/native-headless/main.swift'),'-Xlinker','-sectcreate','-Xlinker','__TEXT','-Xlinker','__ewjs','-Xlinker',bundle,'-o',join(temporary,'kestrel-yards')],{maxBuffer:4*1024*1024});
+  await run('/usr/bin/swiftc',['-swift-version','5','-O','-module-name','KestrelYardsHeadless','-sdk',sdk.trim(),'-target',target.triple,'-framework','JavaScriptCore','-framework','Foundation',resolve(root,'sample/native-headless/main.swift'),'-Xlinker','-sectcreate','-Xlinker','__TEXT','-Xlinker','__ewjs','-Xlinker',bundle,'-o',join(temporary,'kestrel-yards')],{maxBuffer:4*1024*1024});
   // Keep the linker identity stable before copying to the caller-selected destination.
   await copyFile(join(temporary,'kestrel-yards'),output);
-  const bytes=await readFile(output),{stdout:linkage}=await run('/usr/bin/otool',['-L',output]);
-  const receipt={format:'ew.sample-native-package.v1',sourceBundleSha256:hash(script),sourceBundleSize:script.length,compiler:{name:'swiftc',version:version.trim()},target:{platform:'darwin',arch:'arm64',minimumOS:'13.0'},embeddedSection:{segment:'__TEXT',section:'__ewjs'},linkage:linkage.split('\n').slice(1).map(s=>s.trim()).filter(Boolean),artifact:{sha256:hash(bytes),size:bytes.length}};
+  const bytes=await readFile(output);if(bytes.length<8||bytes.readUInt32LE(0)!==0xfeedfacf||bytes.readUInt32LE(4)!==target.cpu)throw Error('The normal output does not match this native worker ABI.');
+  const {stdout:linkage}=await run('/usr/bin/otool',['-L',output]);
+  const receipt={format:'ew.sample-native-package.v1',sourceBundleSha256:hash(script),sourceBundleSize:script.length,compiler:{name:'swiftc',version:version.trim()},target:{platform:target.platform,arch:target.arch,minimumOS:'13.0'},embeddedSection:{segment:'__TEXT',section:'__ewjs'},linkage:linkage.split('\n').slice(1).map(s=>s.trim()).filter(Boolean),artifact:{sha256:hash(bytes),size:bytes.length}};
   await writeFile(`${output}.build.json`,JSON.stringify(receipt,null,2)+'\n');return receipt;
  } finally {await rm(temporary,{recursive:true,force:true});}
 }

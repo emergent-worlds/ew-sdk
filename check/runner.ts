@@ -1,3 +1,4 @@
+import {resolveDeclaredNetwork,assertDeclaredNetwork,type DeclaredNetworkPolicy} from './declared-network.js';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -8,8 +9,13 @@ import {
   type BuildList, type BuildFile, type HostHandlers, type Transport,
 } from '@emergent-worlds/host';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { checkedPath, folderPath, hostAllowed, scanTree, under, validateFiles, type CheckFile, type StaticEvidence } from './scan.js';
-import { resolveNetworkAsk, sampleSockets } from './sockets.js';
+import { checkedPath, folderPath, hostAllowed, namedHost, scanTree, under, validateFiles, type CheckFile, type StaticEvidence } from './scan.js';
+import { resolveNetworkAsk,sampleSockets } from './sockets.js';
+import {CheckLaunchAdmission,readIsolationFailure,settleCheckIsolation,type IsolationFailureEvidence} from './launch-admission.js';
+import {verifyLinuxArtifact,type LinuxArtifactSubject,type LinuxIsolationEvidence} from './linux-subject.js';
+import {readWindowsIsolationFailure,type WindowsArtifactSubject,type WindowsIsolationEvidence,type WindowsFailureEvidence} from './windows-subject.js';
+type ArtifactSubject=LinuxArtifactSubject|WindowsArtifactSubject;
+type IsolationEvidence=LinuxIsolationEvidence|WindowsIsolationEvidence;
 export type { CheckFile } from './scan.js';
 
 // PV85, PV87, PV90 and E17. Shortened runs never produce passing evidence.
@@ -52,7 +58,7 @@ export interface CheckServices {
 }
 /** Trusted deployment adapter. Uploaded code cannot select or configure this boundary. */
 export interface CheckLaunchIsolation {
-  launch(input: { entry: string; root: string; sdkUrl: string; sdkToken: string; signal?: AbortSignal }): Promise<{ child: ChildProcess; dispose(): Promise<void> }>;
+  launch(input: { entry: string; root: string; sdkUrl: string; sdkToken: string; immutableEntry?: {sha256:string;size:number}; network?:DeclaredNetworkPolicy; signal?: AbortSignal }): Promise<{ child: ChildProcess; subject?: ArtifactSubject; isolationEvidence?:IsolationEvidence; assertHealthy?():void; beginShutdown?():void; verify?():Promise<void>; stop?(signal:'SIGTERM'|'SIGKILL'):Promise<void>; declaredNetworkEvidence?:{policySHA256:string;profileSHA256?:string;kernelPolicySHA256?:string}; dispose(): Promise<void> }>;
 }
 export interface BuildCheckEvidence { folder: string; version: string; target: string; rows: CheckRow[]; passed: boolean }
 interface PlayerProjectionEvidence {
@@ -63,7 +69,7 @@ interface LaunchEvidence {
   admitted: boolean; runMs: number; requestedSave: boolean; savedVersions: string[]; saveReasons: string[];
   quitSaved: boolean; modelJobs: string[]; modelFailures: number; refused: number;
   endpoints: string[]; observedEndpoints: string[]; sdkSamples: number; samples: number; sampleErrors: number; missedSamples: number;
-  sampler: string; failure?: string;
+  sampler: string; declaredNetwork?:{policy:DeclaredNetworkPolicy;profileSHA256?:string;kernelPolicySHA256?:string}; subject?: ArtifactSubject; isolationEvidence?:IsolationEvidence; isolationFailure?:IsolationFailureEvidence|WindowsFailureEvidence; cleanup?:{qualified:boolean;failures:string[]}; failure?: string;
   playerProjection?: PlayerProjectionEvidence;
 }
 
@@ -98,17 +104,26 @@ export async function checkRows(plan: CheckPlan, scan: StaticEvidence | undefine
   const projectionEntry = manifest.success && (!needsProjection || validPlayerProjectionEntry(plan, manifest.data));
   const entry = Boolean(prefix && under(plan.entryPath, prefix) && plan.files.some(file => file.path === plan.entryPath && file.executable) && projectionEntry);
   const row = (line: number, result: CheckResult, evidence: Record<string, unknown>): CheckRow => ({ line, name: CHECK_LINES[line - 1]!, result, evidence });
-  const fullRun = Boolean(launch?.admitted && launch.runMs >= CHECK_DURATION_MS && !launch.failure);
+  const evidence=launch?.isolationEvidence;
+  const isolationQualified=!evidence?true:(evidence.adapter==='linux-bwrap-sdk-only-v1'||evidence.adapter==='linux-bwrap-declared-tcp-v1')
+    ?evidence.relayStatusSettled===true&&evidence.relayFailure===undefined&&(evidence.adapter!=='linux-bwrap-declared-tcp-v1'||evidence.networkPolicyInstalledBeforeExec&&evidence.networkTransportRetired)&&launch?.cleanup?.qualified===true&&launch.cleanup.failures.length===0
+    :evidence.policyInstalledBeforeResume===true&&evidence.jobEmpty&&evidence.filtersRetired&&evidence.profileDeleted&&evidence.loopbackUnchanged&&evidence.cleaned&&evidence.nativeFailure===undefined&&launch?.cleanup?.qualified===true&&launch.cleanup.failures.length===0;
+  let declaredQualified=true;
+  if(evidence?.adapter==='linux-bwrap-declared-tcp-v1'||evidence?.adapter==='windows-appcontainer-declared-tcp-v1'){
+    const recorded=launch?.declaredNetwork;declaredQualified=false;
+    if(recorded&&manifest.success){try{assertDeclaredNetwork(recorded.policy);const asks=[...new Set((manifest.data.asks?.network??[]).map(namedHost))].sort();declaredQualified=JSON.stringify(asks)===JSON.stringify(recorded.policy.asks)&&(evidence.adapter==='linux-bwrap-declared-tcp-v1'?evidence.networkPolicySHA256===recorded.policy.digest:recorded.kernelPolicySHA256===recorded.policy.endpointsSHA256);}catch{/* Missing or changed actual policy cannot qualify the rows. */}}
+  }
+  const fullRun = Boolean(launch?.admitted && launch.runMs >= CHECK_DURATION_MS && !launch.failure && isolationQualified && declaredQualified);
   const projection = needsProjection && projectionEntry ? matchedPlayerProjection(plan, launch?.playerProjection) : null;
   const launchFailure = launch?.failure ?? (needsProjection && !projection ? 'the installed player projection did not complete its required probe' : null);
   const network = manifest.success ? manifest.data.asks?.network ?? [] : [];
   const staticDenied = scan?.hosts.filter(host => !hostAllowed(host, network)) ?? [];
   const rows = [
     row(1, entry && scan ? 'pass' : 'fail', { entry: plan.entryPath, prefix: prefix ?? null, verifiedFiles: scan?.verifiedFiles ?? 0 }),
-    row(2, fullRun && (!needsProjection || projection !== null) ? 'pass' : 'fail', { admitted: launch?.admitted ?? false, runMs: launch?.runMs ?? 0, requiredMs: CHECK_DURATION_MS, failure: launchFailure, ...(projection ? { playerProjection: projection } : {}) }),
+    row(2, fullRun && (!needsProjection || projection !== null) ? 'pass' : 'fail', { admitted: launch?.admitted ?? false, runMs: launch?.runMs ?? 0, requiredMs: CHECK_DURATION_MS, failure: launchFailure, ...(launch?.isolationFailure?{isolationFailure:launch.isolationFailure}:{}), ...(launch?.isolationEvidence?{cleanup:launch.cleanup??null}:{}), ...(projection ? { playerProjection: projection } : {}) }),
     row(3, fullRun && launch?.requestedSave && launch.savedVersions.length > 0 && launch.quitSaved ? 'pass' : 'fail', { requestedSave: launch?.requestedSave ?? false, savedVersions: launch?.savedVersions ?? [], quitSaved: launch?.quitSaved ?? false }),
     row(4, fullRun && scan && scan.providerHosts.length === 0 && launch?.modelFailures === 0 ? 'pass' : 'fail', { staticProviderHosts: scan?.providerHosts ?? [], modelJobs: launch?.modelJobs ?? [], failedRoutes: launch?.modelFailures ?? 0 }),
-    row(5, fullRun && scan && scan.hostFindingsComplete && staticDenied.length === 0 && launch && launch.refused === 0 && launch.sampleErrors === 0 && launch.missedSamples === 0 && launch.sdkSamples > 0 && launch.endpoints.length === 0 ? 'pass' : 'fail', { staticDenied, staticFindings: scan?.hostFindings ?? [], staticFindingCount: scan?.hostFindingCount ?? 0, staticFindingsComplete: scan?.hostFindingsComplete ?? false, observedConnections: launch?.observedEndpoints ?? [], deniedConnections: launch?.endpoints ?? [], samples: launch?.samples ?? 0, sdkSamples: launch?.sdkSamples ?? 0, sampleErrors: launch?.sampleErrors ?? 0, missedSamples: launch?.missedSamples ?? 0, sampler: launch?.sampler ?? null, sampleEveryMs: SOCKET_SAMPLE_MS, refusedMessages: launch?.refused ?? 0, limits: 'Static literals and sampled TCP sockets of the launched process; no sandbox or child-process coverage is asserted.' }),
+    row(5, fullRun && scan && scan.hostFindingsComplete && staticDenied.length === 0 && launch && launch.refused === 0 && launch.sampleErrors === 0 && launch.missedSamples === 0 && launch.sdkSamples > 0 && launch.endpoints.length === 0 ? 'pass' : 'fail', { staticDenied, staticFindings: scan?.hostFindings ?? [], staticFindingCount: scan?.hostFindingCount ?? 0, staticFindingsComplete: scan?.hostFindingsComplete ?? false, observedConnections: launch?.observedEndpoints ?? [], deniedConnections: launch?.endpoints ?? [], samples: launch?.samples ?? 0, sdkSamples: launch?.sdkSamples ?? 0, sampleErrors: launch?.sampleErrors ?? 0, missedSamples: launch?.missedSamples ?? 0, sampler: launch?.sampler ?? null, ...(launch?.subject?{subject:launch.subject}:{}), ...(launch?.declaredNetwork?{declaredNetwork:launch.declaredNetwork}:{}), ...(launch?.isolationEvidence?{isolation:launch.isolationEvidence}:{}), sampleEveryMs: SOCKET_SAMPLE_MS, refusedMessages: launch?.refused ?? 0, limits: launch?.declaredNetwork?'Static literals and actual artifact TCP samples use the same captured declared addresses; the recorded per-job kernel boundary and owned cleanup must qualify.':launch?.isolationEvidence?.adapter==='windows-appcontainer-sdk-only-v1'?'Static literals and actual held-artifact TCP samples; the AppContainer and owned Job enforce the recorded SDK-only boundary.':'Static literals and sampled TCP sockets of the launched process; no sandbox or child-process coverage is asserted.' }),
   ];
   const scanPass = Boolean(scan && scan.archives.length === 0 && scan.outsideExecutables.length === 0);
   if (!scanPass) rows.push(row(6, 'fail', { archives: scan?.archives ?? [], outsideExecutables: scan?.outsideExecutables ?? [], signed: false }));
@@ -172,20 +187,35 @@ async function inspectPlayerProjection(plan: CheckPlan, transport: Transport): P
 async function launchBuild(plan: CheckPlan, manifest: Manifest, services: CheckServices, signal?: AbortSignal, isolation?: CheckLaunchIsolation): Promise<LaunchEvidence> {
   const out: LaunchEvidence = { admitted: false, runMs: 0, requestedSave: false, savedVersions: [], saveReasons: [], quitSaved: false, modelJobs: [], modelFailures: 0, refused: 0, endpoints: [], observedEndpoints: [], sdkSamples: 0, samples: 0, sampleErrors: 0, missedSamples: 0, sampler: '' };
   const entry = await checkedPath(plan.root, plan.entryPath);
-  const allowedEndpoints = await resolveNetworkAsk(manifest.asks!.network);
+  const network=isolation?await resolveDeclaredNetwork(manifest.asks!.network,plan.providerHosts):undefined;
+  const allowedEndpoints=network?.allowedEndpoints??await resolveNetworkAsk(manifest.asks!.network);
   const token = randomBytes(32).toString('base64url');
   const server = new WebSocketServer({ host: '127.0.0.1', port: 0, maxPayload: FRAME_BYTES, perMessageDeflate: false });
   await new Promise<void>((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('the local check listener did not open');
   const sdkEndpoint = `127.0.0.1:${address.port}`;
+  const binding=new CheckLaunchAdmission();
+  let isolated: Awaited<ReturnType<CheckLaunchIsolation['launch']>> | undefined;
+  const verifySubject=async()=>{
+    if(isolated?.subject?.kind==='linux-proc-artifact-v1')await verifyLinuxArtifact(isolated.subject);
+    else if(isolated?.subject?.kind==='windows-held-process-v1'){
+      if(!isolated.verify)throw Error('The trusted Windows artifact verifier is unavailable.');
+      await isolated.verify();
+    }
+  };
+  const requireEffect=async()=>{try{binding.assertEffect();isolated?.assertHealthy?.();await verifySubject();binding.assertEffect();isolated?.assertHealthy?.();}catch{out.refused++;throw Error('the SDK effect was refused');}};
+  const callEffect=async<T>(run:()=>T|Promise<T>):Promise<T>=>{try{return await binding.effect(async()=>{isolated?.assertHealthy?.();await verifySubject();isolated?.assertHealthy?.();},run);}catch{out.refused++;throw Error('the SDK effect was refused');}};
   let bridge: HostBridge | undefined; let consumed = false; let disconnected = false;
   let projection: Transport | undefined;
   let projectionStarted = false, projectionOpen = true;
   const closeProjection = () => { projectionOpen = false; projection?.close(); };
   let accept!: () => void; let reject!: (error: Error) => void;
   const ready = new Promise<void>((yes, no) => { accept = yes; reject = no; });
-  const admission = setTimeout(() => reject(new Error('the checked build did not reach the SDK within its admission window')), ADMISSION_MS);
+  // Binding may await native startup; preserve the rejected result without an unhandled early rejection.
+  void ready.catch(() => {});
+  const admission = setTimeout(() => {binding.refuse();reject(new Error('the checked build did not reach the SDK within its admission window'));}, ADMISSION_MS);
+  const grant=()=>{isolated?.assertHealthy?.();out.admitted=true;bridge!.send({type:'grant',asks:manifest.asks!,session:'build-check',headless:true,version:{id:plan.version,seq:0},files:plan.files.map(({path,size,sha256})=>({path,size,sha256})),display:{theme:'light',textSize:'default',contrast:'default',motion:'full',language:'en'}});accept();};
   server.on('connection', socket => {
     socket.on('error', () => { /* Connection failures are reported through admission or closure. */ });
     if (consumed) { socket.close(1008); return; }
@@ -203,12 +233,7 @@ async function launchBuild(plan: CheckPlan, manifest: Manifest, services: CheckS
         projectionOpen = false;
       });
       bridge = new HostBridge(split?.core ?? transport, manifest.asks!, {
-        ready: () => {
-          if (out.admitted) { out.refused++; return; }
-          out.admitted = true;
-          bridge!.send({ type: 'grant', asks: manifest.asks!, session: 'build-check', headless: true, version: { id: plan.version, seq: 0 }, files: plan.files.map(({ path, size, sha256 }) => ({ path, size, sha256 })), display: { theme: 'light', textSize: 'default', contrast: 'default', motion: 'full', language: 'en' } });
-          accept();
-        },
+        ready: () => {try{if(binding.ready())grant();}catch{binding.refuse();out.refused++;reject(new Error('the SDK ready was refused'));socket.close(1008);}},
         progress: fraction => {
           if (fraction !== 1 || !out.admitted || !projection || !projectionOpen || projectionStarted) return;
           projectionStarted = true;
@@ -217,67 +242,86 @@ async function launchBuild(plan: CheckPlan, manifest: Manifest, services: CheckS
           }, () => {});
         },
         fileRead: async path => {
+          await requireEffect();
           if (!plan.files.some(file => file.path === path)) throw new Error('the file is outside the check tree');
-          return { data: (await readFile(await checkedPath(plan.root, path))).toString('base64') };
+          return callEffect(async()=>({data:(await readFile(await checkedPath(plan.root,path))).toString('base64')}));
         },
         save: async message => {
-          const result = await services.save(message) as { version?: unknown; seq?: unknown; at?: unknown };
+          await requireEffect();
+          const result = await callEffect(()=>services.save(message)) as { version?: unknown; seq?: unknown; at?: unknown };
           if (typeof result?.version !== 'string' || !result.version || !Number.isSafeInteger(result.seq) || (result.seq as number) < 0 || typeof result.at !== 'string' || !Number.isFinite(Date.parse(result.at))) throw new Error('the platform did not confirm the checked save');
           out.savedVersions.push(result.version); out.saveReasons.push(message.reason); return result;
         },
         modelCall: async (message, part, abort) => {
+          await requireEffect();
           out.modelJobs.push(message.job);
-          try { if (!services.modelCall) throw new Error('the check model route is unavailable'); return await services.modelCall(message, part, abort); }
+          try { if (!services.modelCall) throw new Error('the check model route is unavailable'); return await callEffect(()=>services.modelCall!(message,part,abort)); }
           catch { out.modelFailures++; throw new Error('the checked model route did not complete'); }
         },
         refused: () => { out.refused++; },
       }, ADMISSION_MS, 'core');
     });
   });
-  let isolated: Awaited<ReturnType<CheckLaunchIsolation['launch']>> | undefined;
-  try { isolated = await isolation?.launch({ entry, root: plan.root, sdkUrl: `ws://${sdkEndpoint}/`, sdkToken: token, signal }); }
-  catch { clearTimeout(admission); ready.catch(() => {}); for (const socket of server.clients) socket.terminate(); await new Promise<void>(resolve => server.close(() => resolve())); throw Error('the isolated check launcher is unavailable'); }
+  try { isolated = await isolation?.launch({ entry, root: plan.root, sdkUrl: `ws://${sdkEndpoint}/`, sdkToken: token, immutableEntry:plan.files.find(file=>file.path===plan.entryPath), ...(network?.asks.length?{network}:{}), signal });await verifySubject();isolated?.assertHealthy?.();if(network?.asks.length){const observed=isolated?.declaredNetworkEvidence;if(!observed||observed.policySHA256!==network.digest)throw Error('The exact declared network was not installed by the trusted adapter.');out.declaredNetwork={policy:network,...(observed.profileSHA256?{profileSHA256:observed.profileSHA256}:{}),...(observed.kernelPolicySHA256?{kernelPolicySHA256:observed.kernelPolicySHA256}:{})};} }
+  catch(error) {binding.refuse();clearTimeout(admission);ready.catch(()=>{});reject(new Error('trusted executable binding refused'));for(const socket of server.clients)socket.terminate();await new Promise<void>(resolve=>server.close(()=>resolve()));out.failure='the trusted executable binding refused';out.isolationFailure=readIsolationFailure(error)??readWindowsIsolationFailure(error);const failures:string[]=[];if(isolated){try{await isolated.dispose();}catch{failures.push('OWNED_ISOLATION_CLEANUP_UNCONFIRMED');}}if(failures.length)out.cleanup={qualified:false,failures};return out;}
   const child = isolation ? isolated!.child : spawn(entry, [], { cwd: plan.root, env: childEnvironment(`ws://${sdkEndpoint}/`, token), stdio: 'ignore', windowsHide: true });
+  out.subject=isolated?.subject;out.isolationEvidence=isolated?.isolationEvidence;
   const stop = new AbortController();
   const runSignal = signal ? AbortSignal.any([stop.signal, signal]) : stop.signal;
-  let exited = false; let sampling = false; let pendingSample: Promise<void> = Promise.resolve();
-  const exit = new Promise<void>(resolve => { child.once('exit', () => { exited = true; resolve(); }); child.once('error', () => { exited = true; reject(new Error('the checked build could not start')); resolve(); }); });
+  let exited = child.exitCode!==null || child.signalCode!==null; let sampling = false; let pendingSample: Promise<void> = Promise.resolve();
+  const exit = new Promise<void>(resolve => { if(exited){resolve();return;} child.once('exit', () => { exited = true; resolve(); }); child.once('error', () => { exited = true; reject(new Error('the checked build could not start')); resolve(); }); });
   child.once('exit', () => reject(new Error('the checked build exited before admission')));
+  if(exited)reject(new Error('the checked build exited before admission'));
   const samplingTimer = setInterval(() => {
     if (sampling) { out.missedSamples++; return; }
     if (!child.pid || exited) return;
     sampling = true;
-    pendingSample = sampleSockets(child.pid).then(sample => {
+    pendingSample = (async()=>{isolated?.assertHealthy?.();await verifySubject();const sample=await sampleSockets(isolated?.subject?.pid??child.pid!);await verifySubject();return sample;})().then(sample => {
       out.samples++; out.sampler = sample.method;
       out.observedEndpoints.push(...sample.endpoints);
       if (sample.endpoints.includes(sdkEndpoint)) out.sdkSamples++;
       for (const endpoint of sample.endpoints) if (endpoint !== sdkEndpoint && !hostAllowed(endpoint, allowedEndpoints)) out.endpoints.push(endpoint);
     }, () => { if (!exited) out.sampleErrors++; }).finally(() => { sampling = false; });
   }, SOCKET_SAMPLE_MS);
-  const abort = () => { reject(new Error('the build check was cancelled')); bridge?.close(); if (!exited) child.kill(); };
+  let pendingStop:Promise<void>=Promise.resolve();const cleanupFailures:string[]=[];
+  const stopOwned=(sig:'SIGTERM'|'SIGKILL')=>isolated?.stop?isolated.stop(sig):Promise.resolve(child.kill(sig)).then(()=>{});
+  const abort = () => {binding.refuse();reject(new Error('the build check was cancelled'));bridge?.close();if(!exited){pendingStop=stopOwned('SIGTERM').catch(()=>{cleanupFailures.push('OWNED_STOP_REFUSED');});}};
   signal?.addEventListener('abort', abort, { once: true });
   try {
     if (signal?.aborted) throw new Error('the build check was cancelled');
+    if(binding.admit())grant();
     await ready; clearTimeout(admission);
     const began = performance.now();
     await Promise.race([delay(CHECK_DURATION_MS, undefined, { signal: runSignal }), exit.then(() => { throw new Error('the checked build exited before the run completed'); })]);
     out.runMs = Math.floor(performance.now() - began);
+    // The Windows wrapper outlives its artifact while retiring its owned Job.
+    // Finish the full original 60-second sample interval before deliberate quit.
+    if(isolated?.subject?.kind==='windows-held-process-v1'){clearInterval(samplingTimer);await pendingSample;}
     closeProjection();
     if (exited || disconnected) throw new Error('the checked build did not remain connected');
+    isolated?.assertHealthy?.();await requireEffect();isolated?.beginShutdown?.();
     await bridge!.requestSave('interval'); out.requestedSave = true;
     const beforeQuit = out.saveReasons.length;
     await bridge!.request({ type: 'quit', reason: 'leaving' });
-    out.quitSaved = out.saveReasons.slice(beforeQuit).includes('leaving');
+    out.quitSaved = out.saveReasons.slice(beforeQuit).includes('leaving');isolated?.assertHealthy?.();
   } catch { out.failure = signal?.aborted ? 'the build check was cancelled' : 'the launch, connection, or save lifecycle did not complete'; }
   finally {
-    stop.abort(); closeProjection(); clearTimeout(admission); clearInterval(samplingTimer); signal?.removeEventListener('abort', abort);
-    await pendingSample; bridge?.close();
+    binding.refuse();stop.abort(); closeProjection(); clearTimeout(admission); clearInterval(samplingTimer); signal?.removeEventListener('abort', abort);
+    await pendingSample;await pendingStop;bridge?.close();
     for (const socket of server.clients) socket.terminate();
     await new Promise<void>(resolve => server.close(() => resolve()));
-    if (!exited) child.kill();
-    // The child has already answered quit; force cleanup if it does not terminate.
-    const force = setTimeout(() => child.kill('SIGKILL'), ADMISSION_MS);
-    try { await exit; } finally { clearTimeout(force); await isolated?.dispose(); }
+    if(isolated?.stop){
+      if(!exited){try{await stopOwned('SIGTERM');}catch{cleanupFailures.push('OWNED_STOP_REFUSED');}await Promise.race([exit,delay(ADMISSION_MS)]);}
+      if(!exited){try{await stopOwned('SIGKILL');}catch{cleanupFailures.push('OWNED_STOP_REFUSED');}await Promise.race([exit,delay(1000)]);}
+      await settleCheckIsolation(isolated,cleanupFailures);
+      if(!exited)cleanupFailures.push('OWNED_WRAPPER_ABSENCE_UNCONFIRMED');out.cleanup={qualified:cleanupFailures.length===0,failures:cleanupFailures};
+      if(cleanupFailures.length)out.failure??='the owned isolation cleanup did not qualify';
+    }else{
+      if (!exited) child.kill();
+      // Retain the existing direct-child Mac/default lifecycle.
+      const force = setTimeout(() => child.kill('SIGKILL'), ADMISSION_MS);
+      try { await exit; } finally { clearTimeout(force); await isolated?.dispose(); }
+    }
   }
   out.endpoints = [...new Set(out.endpoints)].sort();
   out.observedEndpoints = [...new Set(out.observedEndpoints)].sort();
